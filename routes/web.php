@@ -196,6 +196,7 @@ Route::group(['as' => 'admin.', 'prefix' => 'admin', 'namespace' => 'Admin'], fu
     Route::get('/', ['as' => 'root', 'uses' => 'PagesController@root']);
 
     Route::resource('logs', 'LogsController', ['only' => ['index']]);
+    Route::resource('check', 'CheckController', ['only' => ['index']]);
 
     Route::resource('beatmapsets', 'BeatmapsetsController', ['only' => ['show']]);
     Route::get('/beatmapsets/{beatmapset}/covers', ['as' => 'beatmapsets.covers', 'uses' => 'BeatmapsetsController@covers']);
