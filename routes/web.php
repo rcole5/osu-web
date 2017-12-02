@@ -20,9 +20,7 @@
 Route::group(['as' => 'admin.', 'prefix' => 'admin', 'namespace' => 'Admin'], function () {
     Route::get('/beatmapsets/{beatmapset}/covers', 'BeatmapsetsController@covers')->name('beatmapsets.covers');
     Route::post('/beatmapsets/{beatmapset}/covers/regenerate', 'BeatmapsetsController@regenerateCovers')->name('beatmapsets.covers.regenerate');
-    Route::resource('beatmapsets', 'BeatmapsetsController', ['only' => ['show']]);
-
-    Route::resource('beatmapset-discussions', 'BeatmapsetDiscussionsController', ['only' => ['store']]);
+    Route::resource('beatmapsets', 'BeatmapsetsController', ['only' => ['show', 'update']]);
 
     Route::post('contests/{id}/zip', 'ContestsController@gimmeZip')->name('contests.get-zip');
     Route::resource('contests', 'ContestsController', ['only' => ['index', 'show']]);
@@ -43,15 +41,14 @@ Route::group(['as' => 'admin.', 'prefix' => 'admin', 'namespace' => 'Admin'], fu
 
         Route::resource('orders.items', 'OrderItemsController', ['only' => ['update']]);
 
-        Route::get('/', function () {
-            return ujs_redirect(route('admin.store.orders.index'));
-        });
+        route_redirect('/', 'admin.store.orders.index');
     });
 });
 
 Route::group(['prefix' => 'beatmaps'], function () {
     // featured artists
     Route::resource('artists', 'ArtistsController', ['only' => ['index', 'show']]);
+    Route::resource('packs', 'BeatmapPacksController', ['only' => ['index', 'show']]);
 });
 Route::get('beatmaps/{beatmap}/scores', 'BeatmapsController@scores')->name('beatmaps.scores');
 Route::resource('beatmaps', 'BeatmapsController', ['only' => ['show']]);
@@ -66,12 +63,17 @@ Route::group(['prefix' => 'beatmapsets'], function () {
     Route::post('beatmap-discussions-posts/{beatmap_discussion_post}/restore', 'BeatmapDiscussionPostsController@restore')->name('beatmap-discussion-posts.restore');
     Route::resource('beatmap-discussion-posts', 'BeatmapDiscussionPostsController', ['only' => ['destroy', 'store', 'update']]);
 });
+
+Route::group(['prefix' => 'beatmapsets', 'as' => 'beatmapsets.'], function () {
+    Route::resource('watches', 'BeatmapsetWatchesController', ['only' => ['index', 'update', 'destroy']]);
+});
 Route::get('beatmapsets/search/{filters?}', 'BeatmapsetsController@search')->name('beatmapsets.search');
 Route::get('beatmapsets/{beatmapset}/discussion', 'BeatmapsetsController@discussion')->name('beatmapsets.discussion');
+Route::get('beatmapsets/{beatmapset}/download', 'BeatmapsetsController@download')->name('beatmapsets.download');
 Route::put('beatmapsets/{beatmapset}/nominate', 'BeatmapsetsController@nominate')->name('beatmapsets.nominate');
 Route::put('beatmapsets/{beatmapset}/disqualify', 'BeatmapsetsController@disqualify')->name('beatmapsets.disqualify');
 Route::post('beatmapsets/{beatmapset}/update-favourite', 'BeatmapsetsController@updateFavourite')->name('beatmapsets.update-favourite');
-Route::resource('beatmapsets', 'BeatmapsetsController', ['only' => ['index', 'show']]);
+Route::resource('beatmapsets', 'BeatmapsetsController', ['only' => ['index', 'show', 'update']]);
 
 Route::group(['prefix' => 'community'], function () {
     Route::get('chat', 'CommunityController@getChat')->name('chat');
@@ -91,9 +93,7 @@ Route::group(['prefix' => 'community'], function () {
     Route::post('tournaments/{tournament}/register', 'TournamentsController@register')->name('tournaments.register');
     Route::resource('tournaments', 'TournamentsController');
 
-    Route::get('profile/{id}', function ($id) {
-        return ujs_redirect(route('users.show', $id));
-    });
+    route_redirect('profile/{id}', 'users.show');
 
     Route::group(['as' => 'forum.', 'namespace' => 'Forum'], function () {
         Route::group(['prefix' => 'forums'], function () {
@@ -124,6 +124,8 @@ Route::group(['prefix' => 'community'], function () {
     });
 });
 
+Route::resource('groups', 'GroupsController', ['only' => ['show']]);
+
 Route::group(['prefix' => 'home'], function () {
     Route::get('account/edit', 'AccountController@edit')->name('account.edit');
     // Uploading file doesn't quite work with PUT/PATCH.
@@ -138,10 +140,10 @@ Route::group(['prefix' => 'home'], function () {
     Route::post('account/verify', 'AccountController@verify')->name('account.verify');
     Route::put('account', 'AccountController@update')->name('account.update');
 
-    // FIXME: enable later.
-    // Route::get('search', 'HomeController@search')->name('search');
+    Route::get('search', 'HomeController@search')->name('search');
+    Route::get('quick-search', 'HomeController@quickSearch')->name('quick-search');
     Route::post('bbcode-preview', 'HomeController@bbcodePreview')->name('bbcode-preview');
-    Route::get('changelog', 'HomeController@getChangelog')->name('changelog');
+    Route::resource('changelog', 'ChangelogController', ['only' => ['index', 'show']]);
     Route::get('download', 'HomeController@getDownload')->name('download');
     Route::get('icons', 'HomeController@getIcons');
     Route::post('set-locale', 'HomeController@setLocale')->name('set-locale');
@@ -152,62 +154,85 @@ Route::group(['prefix' => 'home'], function () {
     Route::post('password-reset', 'PasswordResetController@create');
     Route::put('password-reset', 'PasswordResetController@update');
 
+    Route::get('support-osu-popup', 'HomeController@osuSupportPopup')->name('support-osu-popup');
+    Route::get('download-quota-check', 'HomeController@downloadQuotaCheck')->name('download-quota-check');
+
+    Route::resource('friends', 'FriendsController', ['only' => ['index', 'store', 'destroy']]);
     Route::resource('news', 'NewsController', ['except' => ['destroy']]);
 });
 
 Route::get('legal/{page}', 'LegalController@show')->name('legal');
 
-// ranking section
-Route::get('/rankings/{mode?}', function ($mode = 'osu') {
-    if (!array_key_exists($mode, App\Models\Beatmap::MODES)) {
-        abort(404);
-    }
-
-    return Redirect::route('ranking', ['mode' => $mode, 'type' => 'performance']);
-});
-Route::get('/rankings/{mode}/{type}/{page?}', ['as' => 'ranking', 'uses' => 'RankingController@index']);
+Route::get('rankings/{mode?}/{type?}', 'RankingController@index')->name('rankings');
 
 Route::post('session', 'SessionsController@store')->name('login');
 Route::delete('session', 'SessionsController@destroy')->name('logout');
 
 Route::post('users/check-username-availability', 'UsersController@checkUsernameAvailability')->name('users.check-username-availability');
+Route::post('users/check-username-exists', 'UsersController@checkUsernameExists')->name('users.check-username-exists');
 Route::get('users/disabled', 'UsersController@disabled')->name('users.disabled');
-Route::get('users/register', function () {
-    return Redirect::to('https://osu.ppy.sh/p/register');
-})->name('users.register');
-Route::resource('users', 'UsersController', ['only' => ['show']]);
+Route::get('users/{user}/card', 'UsersController@card')->name('users.card');
+Route::get('users/{user}/kudosu', 'UsersController@kudosu')->name('users.kudosu');
+Route::get('users/{user}/scores/{type}', 'UsersController@scores')->name('users.scores');
+Route::get('users/{user}/beatmapsets/{type}', 'UsersController@beatmapsets')->name('users.beatmapsets');
+Route::get('users/{user}/{mode?}', 'UsersController@show')->name('users.show');
+// Route::resource('users', 'UsersController', ['only' => 'store']);
 
 Route::group(['prefix' => 'help'], function () {
     // help section
-    Route::get('wiki/{page}', 'WikiController@show')->name('wiki.show')->where('page', '.+');
+    Route::get('wiki/{page?}', 'WikiController@show')->name('wiki.show')->where('page', '.+');
     Route::put('wiki/{page}', 'WikiController@update')->where('page', '.+');
-    Route::get('wiki', function () {
-        return ujs_redirect(wiki_url());
-    })->name('wiki');
+    route_redirect('/', 'wiki.show');
 
     Route::get('support', 'HelpController@getSupport')->name('support');
     Route::get('faq', 'HelpController@getFaq')->name('faq');
-
-    Route::get('/', function () {
-        return ujs_redirect(wiki_url());
-    });
 });
 
 // FIXME: someone split this crap up into proper controllers
-Route::get('store', 'StoreController@getIndex');
-Route::get('store/listing', 'StoreController@getListing')->name('store.products.index');
-Route::get('store/invoice', 'StoreController@getInvoice');
-Route::get('store/invoice/{invoice}', 'StoreController@getInvoice');
-Route::get('store/product/{product}', 'StoreController@getProduct')->name('store.product');
-Route::get('store/cart', 'StoreController@getCart');
-Route::get('store/checkout', 'StoreController@getCheckout');
-Route::post('store/update-cart', 'StoreController@postUpdateCart');
-Route::post('store/update-address', 'StoreController@postUpdateAddress');
-Route::post('store/new-address', 'StoreController@postNewAddress');
-Route::post('store/add-to-cart', 'StoreController@postAddToCart');
-Route::post('store/checkout', 'StoreController@postCheckout');
-Route::post('store/products/{product}/notification-request', 'Store\NotificationRequestsController@store')->name('store.notification-request');
-Route::delete('store/products/{product}/notification-request', 'Store\NotificationRequestsController@destroy');
+Route::group(['as' => 'store.', 'prefix' => 'store'], function () {
+    Route::get('/', 'StoreController@getIndex');
+
+    Route::get('listing', 'StoreController@getListing')->name('products.index');
+    Route::get('invoice/{invoice}', 'StoreController@getInvoice')->name('invoice.show');
+    Route::get('cart', 'StoreController@getCart')->name('cart');
+
+    Route::post('update-cart', 'StoreController@postUpdateCart');
+    Route::post('update-address', 'StoreController@postUpdateAddress');
+    Route::post('new-address', 'StoreController@postNewAddress');
+    Route::post('add-to-cart', 'StoreController@postAddToCart');
+
+    Route::group(['namespace' => 'Store'], function () {
+        Route::post('products/{product}/notification-request', 'NotificationRequestsController@store')->name('notification-request');
+        Route::delete('products/{product}/notification-request', 'NotificationRequestsController@destroy');
+
+        // Store splitting starts here
+        Route::resource('checkout', 'CheckoutController', ['only' => ['index', 'store']]);
+        route_redirect('product/{product}', 'store.products.show');
+        Route::resource('products', 'ProductsController', ['only' => ['show']]);
+    });
+});
+
+Route::group(['as' => 'payments.', 'prefix' => 'payments', 'namespace' => 'Payments'], function () {
+    Route::group(['as' => 'paypal.', 'prefix' => 'paypal'], function () {
+        Route::get('approved', 'PaypalController@approved')->name('approved');
+        Route::get('declined', 'PaypalController@declined')->name('declined');
+        Route::post('create', 'PaypalController@create')->name('create');
+        Route::get('completed', 'PaypalController@completed')->name('completed');
+        Route::post('ipn', 'PaypalController@ipn')->name('ipn');
+    });
+
+    Route::group(['as' => 'xsolla.', 'prefix' => 'xsolla'], function () {
+        Route::get('completed', 'XsollaController@completed')->name('completed');
+        Route::post('token', 'XsollaController@token')->name('token');
+        Route::post('callback', 'XsollaController@callback')->name('callback');
+    });
+
+    Route::group(['as' => 'centili.', 'prefix' => 'centili'], function () {
+        Route::match(['post', 'get'], 'callback', 'CentiliController@callback')->name('callback');
+        Route::get('completed', 'CentiliController@completed')->name('completed');
+        Route::get('failed', 'CentiliController@failed')->name('failed');
+    });
+});
 
 // API
 Route::group(['as' => 'api.', 'prefix' => 'api', 'namespace' => 'API', 'middleware' => 'auth:api'], function () {
@@ -239,8 +264,27 @@ Route::group(['as' => 'api.', 'prefix' => 'api', 'namespace' => 'API', 'middlewa
         //   GET /api/v2/beatmapsets/search/:filters
         Route::get('beatmapsets/search/{filters?}', '\App\Http\Controllers\BeatmapsetsController@search');
 
-        Route::get('me', ['uses' => 'UsersController@me']);                               //  GET /api/v2/me
-        Route::get('users/{user}', ['uses' => 'UsersController@show']);                   //  GET /api/v2/users/:user_id
+        // Beatmapsets
+        //   GET /api/v2/beatmapsets/:beatmapset/download
+        Route::get('beatmapsets/{beatmapset}/download', ['uses' => '\App\Http\Controllers\BeatmapsetsController@download']);
+        //   GET /api/v2/beatmapsets/:beatmapset_id
+        Route::resource('beatmapsets', '\App\Http\Controllers\BeatmapsetsController', ['only' => ['show']]);
+
+        //  GET /api/v2/me
+        Route::get('me', '\App\Http\Controllers\UsersController@me');
+        //  GET /api/v2/me/download-quota-check
+        Route::get('me/download-quota-check', '\App\Http\Controllers\HomeController@downloadQuotaCheck');
+        //  GET /api/v2/rankings/:mode/:type
+        Route::get('rankings/{mode}/{type}', '\App\Http\Controllers\RankingController@index');
+
+        //  GET /api/v2/users/:user_id/kudosu
+        Route::get('users/{user}/kudosu', '\App\Http\Controllers\UsersController@kudosu');
+        //  GET /api/v2/users/:user_id/scores/:type [best, firsts, recent]
+        Route::get('users/{user}/scores/{type}', '\App\Http\Controllers\UsersController@scores');
+        //  GET /api/v2/users/:user_id/beatmapsets/:type [most_played, favourite, ranked_and_approved, unranked, graveyard]
+        Route::get('users/{user}/beatmapsets/{type}', '\App\Http\Controllers\UsersController@beatmapsets');
+        //  GET /api/v2/users/:user_id/:mode [osu, taiko, fruits, mania]
+        Route::get('users/{user}/{mode?}', '\App\Http\Controllers\UsersController@show');
     });
     // legacy api routes
     Route::group(['prefix' => 'v1'], function () {
@@ -258,60 +302,25 @@ Route::group(['as' => 'api.', 'prefix' => 'api', 'namespace' => 'API', 'middlewa
 // Callbacks for legacy systems to interact with
 Route::group(['prefix' => '_lio', 'middleware' => 'lio'], function () {
     Route::post('/regenerate-beatmapset-covers/{beatmapset}', ['uses' => 'LegacyInterOpController@regenerateBeatmapsetCovers']);
+    Route::get('/news', ['uses' => 'LegacyInterOpController@news']);
 });
 
 Route::get('/home', 'HomeController@index')->name('home');
-Route::get('/', function () {
-    return ujs_redirect(route('home'));
-});
+route_redirect('/', 'home');
 
 // redirects go here
-Route::get('forum/p/{post}', function ($post) {
-    return ujs_redirect(route('forum.posts.show', compact('post')));
-});
-Route::get('forum/t/{topic}', function ($topic) {
-    return ujs_redirect(route('forum.topics.show', compact('topic')));
-});
-Route::get('forum/{forum}', function ($forum) {
-    return ujs_redirect(route('forum.forums.show', compact('forum')));
-});
+route_redirect('forum/p/{post}', 'forum.posts.show');
+route_redirect('forum/t/{topic}', 'forum.topics.show');
+route_redirect('forum/{forum}', 'forum.forums.show');
 // redirects to beatmapset anyways so there's no point
 // in having an another redirect on top of that
-Route::get('b/{beatmap}', ['uses' => 'BeatmapsController@show']);
-
-Route::get('s/{beatmapset}', function ($beatmapset) {
-    return ujs_redirect(route('beatmapsets.show', compact('beatmapset')));
-});
-
-Route::get('u/{user}', function ($user) {
-    return ujs_redirect(route('users.show', compact('user')));
-});
-
-Route::get('forum', function () {
-    return ujs_redirect(route('forum.forums.index'));
-});
-
-// temporary news redirect
-Route::get('news/{id}', function ($id) {
-    return Redirect::to("https://osu.ppy.sh/news/{$id}");
-});
-
-Route::get('mp/{match}', function ($match) {
-    return ujs_redirect(route('matches.show', compact('match')));
-});
-
-// soon-to-be notifications
-Route::get('notifications', ['as' => 'notifications.index', function () {
-    return Redirect::to('https://osu.ppy.sh/forum/ucp.php?i=pm&folder=inbox');
-}]);
-
-Route::get('wiki', function () {
-    return ujs_redirect(route('wiki'));
-})->where('page', '.+');
-
-Route::get('wiki/{page}', function ($page) {
-    return ujs_redirect(route('wiki.show', compact('page')));
-})->where('page', '.+');
+Route::get('b/{beatmap}', 'BeatmapsController@show');
+route_redirect('g/{group}', 'groups.show');
+route_redirect('s/{beatmapset}', 'beatmapsets.show');
+route_redirect('u/{user}', 'users.show');
+route_redirect('forum', 'forum.forums.index');
+route_redirect('mp/{match}', 'matches.show');
+route_redirect('wiki/{page?}', 'wiki.show');
 
 // status
 if (Config::get('app.debug')) {

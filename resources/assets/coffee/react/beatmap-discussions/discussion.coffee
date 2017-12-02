@@ -16,41 +16,44 @@
 #    along with osu!web.  If not, see <http://www.gnu.org/licenses/>.
 ###
 
-{button, div, span} = React.DOM
+{button, div, span} = ReactDOMFactories
 el = React.createElement
 
 bn = 'beatmap-discussion'
 
-BeatmapDiscussions.Discussion = React.createClass
-  mixins: [React.addons.PureRenderMixin]
+class BeatmapDiscussions.Discussion extends React.PureComponent
+  constructor: (props) ->
+    super props
 
-
-  componentWillMount: ->
     @eventId = "beatmap-discussion-entry-#{@props.discussion.id}"
 
+    @state =
+      collapsed: false
+      highlighted: false
+
+
+  componentWillMount: =>
     $.subscribe "beatmapDiscussionEntry:collapse.#{@eventId}", @setCollapse
     $.subscribe "beatmapDiscussionEntry:highlight.#{@eventId}", @setHighlight
 
 
-  componentWillUnmount: ->
+  componentWillUnmount: =>
     $.unsubscribe ".#{@eventId}"
     @voteXhr?.abort()
 
 
-  getInitialState: ->
-    collapsed: false
-    highlighted: false
-
-
-  render: ->
+  render: =>
     return div() if @props.discussion.beatmap_discussion_posts.length == 0
 
     topClasses = "#{bn} js-beatmap-discussion-jump"
     topClasses += " #{bn}--highlighted" if @state.highlighted
     topClasses += " #{bn}--deleted" if @props.discussion.deleted_at?
+    topClasses += " #{bn}--timeline" if @props.discussion.timestamp?
 
     lineClasses = "#{bn}__line"
     lineClasses += " #{bn}__line--resolved" if @props.discussion.resolved
+
+    lastResolvedState = false
 
     div
       className: topClasses
@@ -58,7 +61,7 @@ BeatmapDiscussions.Discussion = React.createClass
       onClick: @emitSetHighlight
 
       div className: "#{bn}__timestamp hidden-xs",
-        @timestamp() if @props.discussion.timestamp?
+        @timestamp()
 
       div className: "#{bn}__discussion",
         div className: "#{bn}__top",
@@ -68,7 +71,7 @@ BeatmapDiscussions.Discussion = React.createClass
             ['up', 'down'].map (direction) =>
               div
                 key: direction
-                className: "#{bn}__action hidden-xs"
+                className: "#{bn}__action"
                 @displayVote direction
 
             button
@@ -77,27 +80,29 @@ BeatmapDiscussions.Discussion = React.createClass
               div
                 className: "beatmap-discussion-expand #{'beatmap-discussion-expand--expanded' if !@state.collapsed}"
                 el Icon, name: 'chevron-down'
-        el ReactCollapse,
-          isOpened: !@state.collapsed
-          keepCollapsedContent: true
-          className: "#{bn}__expanded"
+        div
+          className: "#{bn}__expanded #{'hidden' if @state.collapsed}"
           div
             className: "#{bn}__replies"
-            @props.discussion.beatmap_discussion_posts.slice(1).map (reply) =>
+            for reply in @props.discussion.beatmap_discussion_posts.slice(1)
+              if reply.system && reply.message.type == 'resolved'
+                currentResolvedState = reply.message.value
+                continue if lastResolvedState == currentResolvedState
+                lastResolvedState = currentResolvedState
+
               @post reply, 'reply'
 
-          if @props.currentUser.id?
-            el BeatmapDiscussions.NewReply,
-              currentUser: @props.currentUser
-              beatmapset: @props.beatmapset
-              currentBeatmap: @props.currentBeatmap
-              discussion: @props.discussion
-              userPermissions: @props.userPermissions
+          el BeatmapDiscussions.NewReply,
+            currentUser: @props.currentUser
+            beatmapset: @props.beatmapset
+            currentBeatmap: @props.currentBeatmap
+            discussion: @props.discussion
+            userPermissions: @props.userPermissions
 
         div className: lineClasses
 
 
-  displayVote: (type) ->
+  displayVote: (type) =>
     vbn = 'beatmap-discussion-vote'
 
     [baseScore, icon] = switch type
@@ -111,7 +116,8 @@ BeatmapDiscussions.Discussion = React.createClass
     score = if currentVote == baseScore then 0 else baseScore
 
     topClasses = "#{vbn} #{vbn}--#{type}"
-    topClasses += " #{vbn}--#{'inactive' if score != 0}"
+    topClasses += " #{vbn}--inactive" if score != 0
+    topClasses += " #{vbn}--disabled" if @isOwner()
 
     button
       className: topClasses
@@ -122,7 +128,9 @@ BeatmapDiscussions.Discussion = React.createClass
         @props.discussion.votes[type]
 
 
-  doVote: (e) ->
+  doVote: (e) =>
+    return if @isOwner()
+
     LoadingOverlay.show()
 
     @voteXhr?.abort()
@@ -141,31 +149,38 @@ BeatmapDiscussions.Discussion = React.createClass
     .always LoadingOverlay.hide
 
 
-  emitSetHighlight: ->
+  emitSetHighlight: =>
     $.publish 'beatmapDiscussionEntry:highlight', id: @props.discussion.id
 
 
-  post: (post, type) ->
+  isOwner: (object = @props.discussion) =>
+    @props.currentUser.id? && object.user_id == @props.currentUser.id
+
+
+  post: (post, type) =>
     return if !post.id?
 
     elementName = if post.system then 'SystemPost' else 'Post'
 
+    canModeratePosts = @props.currentUser.isAdmin || @props.currentUser.isGMT || @props.currentUser.isQAT
+
     el BeatmapDiscussions[elementName],
       key: post.id
+      beatmapset: @props.beatmapset
       discussion: @props.discussion
       post: post
       type: type
-      read: _.includes(@props.readPostIds, post.id) || (@props.currentUser.id == post.user_id)
+      read: _.includes(@props.readPostIds, post.id) || @isOwner(post)
       users: @props.users
       user: @props.users[post.user_id]
       lastEditor: @props.users[post.last_editor_id]
-      canBeEdited: @props.currentUser.isAdmin || (@props.currentUser.id == post.user_id)
-      canBeDeleted: @props.currentUser.isAdmin || (@props.currentUser.id == post.user_id)
-      canBeRestored: @props.currentUser.isAdmin
+      canBeEdited: @props.currentUser.isAdmin || @isOwner(post)
+      canBeDeleted: canModeratePosts || @isOwner(post)
+      canBeRestored: canModeratePosts
       currentUser: @props.currentUser
 
 
-  setCollapse: (_e, {collapse}) ->
+  setCollapse: (_e, {collapse}) =>
     return unless @props.visible
 
     newState = collapse == 'collapse'
@@ -175,7 +190,7 @@ BeatmapDiscussions.Discussion = React.createClass
     @setState collapsed: newState
 
 
-  setHighlight: (_e, {id}) ->
+  setHighlight: (_e, {id}) =>
     newState = id == @props.discussion.id
 
     return if @state.highlighted == newState
@@ -183,17 +198,17 @@ BeatmapDiscussions.Discussion = React.createClass
     @setState highlighted: newState
 
 
-  timestamp: ->
+  timestamp: =>
     tbn = 'beatmap-discussion-timestamp'
 
     div className: tbn,
-      div className: "#{tbn}__point"
+      div(className: "#{tbn}__point") if @props.discussion.timestamp?
       div className: "#{tbn}__icons-container",
         div className: "#{tbn}__icons",
           div className: "#{tbn}__icon",
             span
-              className: "beatmap-discussion-message-type beatmap-discussion-message-type--#{@props.discussion.message_type}"
-              el Icon, name: BeatmapDiscussionHelper.messageType.icon[@props.discussion.message_type]
+              className: "beatmap-discussion-message-type beatmap-discussion-message-type--#{_.kebabCase(@props.discussion.message_type)}"
+              el Icon, name: BeatmapDiscussionHelper.messageType.icon[_.camelCase(@props.discussion.message_type)]
 
           if @props.discussion.resolved
             div className: "#{tbn}__icon #{tbn}__icon--resolved",
@@ -203,5 +218,5 @@ BeatmapDiscussions.Discussion = React.createClass
           BeatmapDiscussionHelper.formatTimestamp @props.discussion.timestamp
 
 
-  toggleExpand: ->
+  toggleExpand: =>
     @setState collapsed: !@state.collapsed

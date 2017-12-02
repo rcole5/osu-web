@@ -105,12 +105,26 @@
     padding: 10px 5px;
   }
 
+  &--mega {
+    width: 100%;
+    height: 50px;
+    font-size: 18px;
+    .center-content();
+  }
+
   &--full {
     width: 100%;
   }
 
   &--green {
     background-color: @green;
+  }
+
+  &--nav-popup {
+    text-align: left;
+    width: 120px;
+    height: 35px;
+    padding: 7px 10px;
   }
 
   &--password-reset {
@@ -120,6 +134,12 @@
 
   &--pink {
     background-color: @pink;
+  }
+
+  &--search-advanced {
+    flex: 1 0 auto;
+    text-transform: lowercase;
+    margin: 0 5px;
   }
 
   &--user-homepage {
@@ -139,13 +159,18 @@
     justify-content: space-between;
     align-items: center;
 
+    &--center {
+      justify-content: center;
+    }
+
     .@{top}--account-edit & {
       width: auto;
       margin: 0 -5px;
     }
 
-    &--center {
-      justify-content: center;
+    .@{top}--nav-popup & {
+      width: auto;
+      margin: 0 -5px;
     }
 
     .@{top}--user-homepage & {
@@ -179,6 +204,13 @@
       font-size: 20px;
       border: 2px solid #fff;
     }
+
+    .@{top}--nav-popup & {
+      height: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
   }
 
   &__left {
@@ -190,6 +222,10 @@
 
     .@{top}--user-homepage & {
       align-items: center;
+    }
+
+    .@{top}--beatmap-discussion-reply-open & {
+      margin-right: 20px;
     }
   }
 

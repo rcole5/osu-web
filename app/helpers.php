@@ -31,26 +31,52 @@ function array_search_null($value, $array)
     }
 }
 
-function background_image($url)
+function background_image($url, $proxy = true)
 {
     if (!present($url)) {
         return '';
     }
 
-    return sprintf(' style="background-image:url(\'%s\');" ', e(proxy_image($url)));
+    $url = $proxy ? proxy_image($url) : $url;
+
+    return sprintf(' style="background-image:url(\'%s\');" ', e($url));
 }
 
 function es_query_and_words($words)
 {
-    $parts = preg_split("/\s+/", trim($words ?? ''));
+    $parts = preg_split("/\s+/", $words, null, PREG_SPLIT_NO_EMPTY);
+
+    if (empty($parts)) {
+        return;
+    }
 
     $partsEscaped = [];
 
     foreach ($parts as $part) {
-        $partsEscaped[] = urlencode($part);
+        $partsEscaped[] = str_replace('-', '%2D', urlencode(strtolower($part)));
     }
 
     return implode(' AND ', $partsEscaped);
+}
+
+/*
+ * Remove some (but not all) elasticsearch reserved characters.
+ * Those characters seem to be ignored anyway even escaped so might as well
+ * just remove them. Note that double quotes are not escaped so they can be
+ * used for "exact" match. As a result, this doesn't always produce
+ * valid query. The execution must be wrapped within a try/catch.
+ *
+ * This also doesn't add keyword (OR/AND). Elasticsearch default is OR.
+ *
+ * Reference: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
+ */
+function es_query_escape_with_caveats($query)
+{
+    return str_replace(
+        ['+', '-', '=', '&&', '||', '>', '<', '!', '(', ')', '{', '}', '[', ']', '^', '~', '*', '?', ':', '\\', '/'],
+        [' ', ' ', ' ', '  ', '  ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '  ', ' '],
+        $query
+    );
 }
 
 function flag_path($country)
@@ -66,11 +92,27 @@ function get_valid_locale($requestedLocale)
 
     return array_first(
         config('app.available_locales'),
-        function ($_key, $value) use ($requestedLocale) {
+        function ($value) use ($requestedLocale) {
             return starts_with($requestedLocale, $value);
         },
         config('app.fallback_locale')
     );
+}
+
+function html_excerpt($body, $limit = 300)
+{
+    $body = replace_tags_with_spaces($body);
+
+    if (strlen($body) < $limit) {
+        return $body;
+    }
+
+    return mb_substr($body, 0, $limit).'...';
+}
+
+function json_date($date)
+{
+    return json_time($date->startOfDay());
 }
 
 function json_time($time)
@@ -90,6 +132,19 @@ function locale_name($locale)
     return App\Libraries\LocaleMeta::nameFor($locale);
 }
 
+function locale_for_moment($locale)
+{
+    if ($locale === 'en') {
+        return;
+    }
+
+    if ($locale === 'zh') {
+        return 'zh-cn';
+    }
+
+    return $locale;
+}
+
 function locale_for_timeago($locale)
 {
     if ($locale === 'zh') {
@@ -97,6 +152,11 @@ function locale_for_timeago($locale)
     }
 
     return $locale;
+}
+
+function mysql_escape_like($string)
+{
+    return addcslashes($string, '%_\\');
 }
 
 function osu_url($key)
@@ -108,6 +168,15 @@ function osu_url($key)
     }
 
     return $url;
+}
+
+function param_string_simple($value)
+{
+    if (is_array($value)) {
+        $value = implode(',', $value);
+    }
+
+    return presence($value);
 }
 
 function product_quantity_options($product)
@@ -151,9 +220,54 @@ function read_image_properties_from_string($string)
     }
 }
 
+// use this instead of strip_tags when <br> and <p> need to be converted to space
+function replace_tags_with_spaces($body)
+{
+    return preg_replace('#<[^>]+>#', ' ', $body);
+}
+
+function request_country($request = null)
+{
+    return $request === null
+        ? Request::header('CF_IPCOUNTRY')
+        : $request->header('CF_IPCOUNTRY');
+}
+
+function require_login($text_key, $link_text_key)
+{
+    $title = trans('users.anonymous.login_link');
+    $link = Html::link('#', trans($link_text_key), ['class' => 'js-user-link', 'title' => $title]);
+    $text = trans($text_key, ['link' => $link]);
+
+    return $text;
+}
+
 function render_to_string($view, $variables = [])
 {
     return view()->make($view, $variables)->render();
+}
+
+function strip_utf8_bom($input)
+{
+    if (substr($input, 0, 3) === "\xEF\xBB\xBF") {
+        return substr($input, 3);
+    }
+
+    return $input;
+}
+
+function to_sentence($array, $key = 'common.array_and')
+{
+    switch (count($array)) {
+        case 0:
+            return '';
+        case 1:
+            return (string) $array[0];
+        case 2:
+            return implode(trans("{$key}.two_words_connector"), $array);
+        default:
+            return implode(trans("{$key}.words_connector"), array_slice($array, 0, -1)).trans("{$key}.last_word_connector").array_last($array);
+    }
 }
 
 function obscure_email($email)
@@ -216,20 +330,29 @@ function is_sql_unique_exception($ex)
     );
 }
 
-function js_view($view, $vars = [])
+function js_view($view, $vars = [], $status = 200)
 {
     return response()
-        ->view($view, $vars)
+        ->view($view, $vars, $status)
         ->header('Content-Type', 'application/javascript');
 }
 
-function ujs_redirect($url)
+function ujs_redirect($url, $status = 200)
 {
-    if (Request::ajax()) {
-        return js_view('layout.ujs-redirect', ['url' => $url]);
+    if (Request::ajax() && !Request::isMethod('get')) {
+        return js_view('layout.ujs-redirect', ['url' => $url], $status);
     } else {
+        if (Request::header('Turbolinks-Referrer')) {
+            Request::session()->put('_turbolinks_location', $url);
+        }
+
         return redirect($url);
     }
+}
+
+function route_redirect($path, $target)
+{
+    return Route::get($path, '\App\Http\Controllers\RedirectController')->name("redirect:{$target}");
 }
 
 function timeago($date)
@@ -242,10 +365,7 @@ function timeago($date)
 
 function current_action()
 {
-    $currentAction = \Route::currentRouteAction();
-    if ($currentAction !== null) {
-        return explode('@', $currentAction, 2)[1];
-    }
+    return explode('@', Route::currentRouteAction(), 2)[1] ?? null;
 }
 
 function link_to_user($user_id, $user_name, $user_color)
@@ -256,7 +376,7 @@ function link_to_user($user_id, $user_name, $user_color)
     if ($user_id) {
         $user_url = e(route('users.show', $user_id));
 
-        return "<a class='user-name' href='{$user_url}' style='{$style}'>{$user_name}</a>";
+        return "<a class='user-name js-usercard' data-user-id='{$user_id}' href='{$user_url}' style='{$style}'>{$user_name}</a>";
     } else {
         return "<span class='user-name'>{$user_name}</span>";
     }
@@ -288,18 +408,18 @@ function post_url($topicId, $postId, $jumpHash = true, $tail = false)
 
 function wiki_url($page = 'Welcome', $locale = null)
 {
-    $url = route('wiki.show', ['page' => $page]);
+    $params = compact('page');
 
     if (present($locale) && $locale !== App::getLocale()) {
-        $url .= '?locale='.$locale;
+        $params['locale'] = $locale;
     }
 
-    return $url;
+    return route('wiki.show', $params);
 }
 
-function bbcode($text, $uid, $withGallery = false)
+function bbcode($text, $uid, $options = [])
 {
-    return (new App\Libraries\BBCodeFromDB($text, $uid, $withGallery))->toHTML();
+    return (new App\Libraries\BBCodeFromDB($text, $uid, $options))->toHTML();
 }
 
 function bbcode_for_editor($text, $uid)
@@ -309,6 +429,15 @@ function bbcode_for_editor($text, $uid)
 
 function proxy_image($url)
 {
+    // turn relative urls into absolute urls
+    if (!preg_match('/^https?\:\/\//', $url)) {
+        // ensure url is relative to the site root
+        if ($url[0] !== '/') {
+            $url = "/{$url}";
+        }
+        $url = config('app.url').$url;
+    }
+
     $decoded = urldecode(html_entity_decode($url));
 
     if (config('osu.camo.key') === '') {
@@ -339,24 +468,27 @@ function nav_links()
 
     $links['home'] = [
         'news-index' => route('news.index'),
-        'getChangelog' => route('changelog'),
+        'friends' => route('friends.index'),
+        'changelog-index' => route('changelog.index'),
         'getDownload' => route('download'),
+        'search' => route('search'),
     ];
     $links['help'] = [
         'getWiki' => wiki_url('Welcome'),
         'getFaq' => wiki_url('FAQ'),
-        'getSupport' => osu_url('help.support'),
+        'getSupport' => wiki_url('Help_Center'),
     ];
     $links['rankings'] = [
-        'index' => route('ranking', ['mode' => 'osu', 'type' => 'performance']),
+        'index' => route('rankings', ['mode' => 'osu', 'type' => 'performance']),
         'charts' => osu_url('rankings.charts'),
-        'score' => route('ranking', ['mode' => 'osu', 'type' => 'score']),
-        'country' => osu_url('rankings.country'),
+        'score' => route('rankings', ['mode' => 'osu', 'type' => 'score']),
+        'country' => route('rankings', ['mode' => 'osu', 'type' => 'country']),
         'kudosu' => osu_url('rankings.kudosu'),
     ];
     $links['beatmaps'] = [
         'index' => route('beatmapsets.index'),
         'artists' => route('artists.index'),
+        'packs' => route('packs.index'),
     ];
     $links['community'] = [
         'forum-forums-index' => route('forum.forums.index'),
@@ -373,34 +505,38 @@ function nav_links()
     return $links;
 }
 
-function footer_links()
+function footer_landing_links()
 {
-    $links = [];
-    $links['general'] = [
-        'home' => route('home'),
-        'changelog' => route('changelog'),
-        'beatmaps' => action('BeatmapsetsController@index'),
-        'download' => osu_url('home.download'),
-        'wiki' => wiki_url('Welcome'),
+    return [
+        'general' => [
+            'home' => route('home'),
+            'changelog-index' => route('changelog.index'),
+            'beatmaps' => action('BeatmapsetsController@index'),
+            'download' => osu_url('home.download'),
+            'wiki' => wiki_url('Welcome'),
+        ],
+        'help' => [
+            'faq' => wiki_url('FAQ'),
+            'forum' => route('forum.forums.index'),
+            'livestreams' => route('livestreams.index'),
+            'report' => route('forum.topics.create', ['forum_id' => 5]),
+        ],
+        'support' => [
+            'tags' => route('support-the-game'),
+            'merchandise' => action('StoreController@getListing'),
+        ],
+        'legal' => footer_legal_links(),
     ];
-    $links['help'] = [
-        'faq' => wiki_url('FAQ'),
-        'forum' => route('forum.forums.index'),
-        'livestreams' => route('livestreams.index'),
-        'report' => route('forum.topics.create', ['forum_id' => 5]),
-    ];
-    $links['support'] = [
-        'tags' => route('support-the-game'),
-        'merchandise' => action('StoreController@getListing'),
-    ];
-    $links['legal'] = [
-        'tos' => route('legal', 'terms'),
-        'copyright' => route('legal', 'copyright'),
-        'serverStatus' => osu_url('status.server'),
-        'osuStatus' => osu_url('status.osustatus'),
-    ];
+}
 
-    return $links;
+function footer_legal_links()
+{
+    return [
+        'terms' => route('legal', 'terms'),
+        'copyright' => route('legal', 'copyright'),
+        'server_status' => osu_url('status.server'),
+        'osu_status' => osu_url('status.osustatus'),
+    ];
 }
 
 function presence($string, $valueIfBlank = null)
@@ -419,7 +555,7 @@ function user_color_style($color, $style)
         return '';
     }
 
-    return sprintf('%s: #%s', $style, e($color));
+    return sprintf('%s: %s', $style, e($color));
 }
 
 function base62_encode($input)
@@ -444,22 +580,28 @@ function display_regdate($user)
         return;
     }
 
+    $formattedDate = i18n_date($user->user_regdate, null, 'year_month');
+
     if ($user->user_regdate < Carbon\Carbon::createFromDate(2008, 1, 1)) {
-        return trans('users.show.first_members');
+        return "<div title='{$formattedDate}'>".trans('users.show.first_members').'</div>';
     }
 
     return trans('users.show.joined_at', [
-        'date' => '<strong>'.$user->user_regdate->formatLocalized('%B %Y').'</strong>',
+        'date' => "<strong>{$formattedDate}</strong>",
     ]);
 }
 
-function i18n_date($datetime, $format = IntlDateFormatter::LONG)
+function i18n_date($datetime, $format = IntlDateFormatter::LONG, $pattern = null)
 {
     $formatter = IntlDateFormatter::create(
         App::getLocale(),
         $format,
         IntlDateFormatter::NONE
     );
+
+    if ($pattern !== null) {
+        $formatter->setPattern(trans("common.datetime.{$pattern}.php"));
+    }
 
     return $formatter->format($datetime);
 }
@@ -530,7 +672,7 @@ function json_item($model, $transformer, $includes = null)
 
 function fast_imagesize($url)
 {
-    return Cache::remember("imageSize:{$url}", Carbon\Carbon::now()->addMonth(1), function () use ($url) {
+    $result = Cache::remember("imageSize:{$url}", Carbon\Carbon::now()->addMonth(1), function () use ($url) {
         $curl = curl_init($url);
         curl_setopt_array($curl, [
             CURLOPT_HTTPHEADER => [
@@ -543,8 +685,18 @@ function fast_imagesize($url)
         $data = curl_exec($curl);
         curl_close($curl);
 
-        return read_image_properties_from_string($data);
+        $result = read_image_properties_from_string($data);
+
+        if ($result === null) {
+            return false;
+        } else {
+            return $result;
+        }
     });
+
+    if ($result !== false) {
+        return $result;
+    }
 }
 
 function get_arr($input, $callback)
@@ -623,7 +775,7 @@ function get_model_basename($model)
 function ci_file_search($fileName)
 {
     if (file_exists($fileName)) {
-        return $fileName;
+        return is_file($fileName) ? $fileName : false;
     }
 
     $directoryName = dirname($fileName);
@@ -631,7 +783,7 @@ function ci_file_search($fileName)
     $fileNameLowerCase = strtolower($fileName);
     foreach ($fileArray as $file) {
         if (strtolower($file) === $fileNameLowerCase) {
-            return $file;
+            return is_file($file) ? $file : false;
         }
     }
 
@@ -640,8 +792,8 @@ function ci_file_search($fileName)
 
 function sanitize_filename($file)
 {
-    $file = mb_ereg_replace("([^\w\s\d\-_~,;\[\]\(\).])", '', $file);
-    $file = mb_ereg_replace("([\.]{2,})", '', $file);
+    $file = mb_ereg_replace('[^\w\s\d\-_~,;\[\]\(\).]', '', $file);
+    $file = mb_ereg_replace('[\.]{2,}', '.', $file);
 
     return $file;
 }
@@ -799,27 +951,6 @@ function first_paragraph($html, $split_on = "\n")
     return ($match_pos === false) ? $text : substr($text, 0, $match_pos);
 }
 
-function find_images($html)
-{
-    // regex based on answer in http://stackoverflow.com/questions/12933528/regular-expression-pattern-to-match-image-url-from-text
-    $regex = "/(?:https?\:\/\/[a-zA-Z](?:[\w\-]+\.)+(?:[\w]{2,5}))(?:\:[\d]{1,6})?\/(?:[^\s\/]+\/)*(?:[^\s]+\.(?:jpe?g|gif|png))(?:\?\w?(?:=\w)?(?:&\w?(?:=\w)?)*)?/";
-    $matches = [];
-    preg_match_all($regex, $html, $matches);
-
-    return $matches[0];
-}
-
-function find_first_image($html)
-{
-    $post_images = find_images($html);
-
-    if (!is_array($post_images) || count($post_images) < 1) {
-        return;
-    }
-
-    return $post_images[0];
-}
-
 function build_icon($prefix)
 {
     switch ($prefix) {
@@ -833,4 +964,49 @@ function build_icon($prefix)
 function clamp($number, $min, $max)
 {
     return min($max, max($min, $number));
+}
+
+// e.g. 100634983048665 -> 100.63 trillion
+function suffixed_number_format($number)
+{
+    $suffixes = ['', 'k', 'million', 'billion', 'trillion']; // TODO: localize
+    $k = 1000;
+
+    if ($number < $k) {
+        return $number;
+    }
+
+    $i = floor(log($number) / log($k));
+
+    return number_format($number / pow($k, $i), 2).' '.$suffixes[$i];
+}
+
+function suffixed_number_format_tag($number)
+{
+    return "<span title='".number_format($number)."'>".suffixed_number_format($number).'</span>';
+}
+
+// formats a number as a percentage with a fixed number of precision
+// e.g.: 98.3 -> 98.30%
+function format_percentage($number, $precision = 2)
+{
+    return sprintf("%.{$precision}f%%", round($number, $precision));
+}
+
+function group_users_by_online_state($users)
+{
+    $online = $offline = [];
+
+    foreach ($users as $user) {
+        if ($user->isOnline()) {
+            $online[] = $user;
+        } else {
+            $offline[] = $user;
+        }
+    }
+
+    return [
+        'online' => $online,
+        'offline' => $offline,
+    ];
 }

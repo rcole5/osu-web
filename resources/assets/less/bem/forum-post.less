@@ -159,6 +159,13 @@
       color: #fff;
     }
 
+    &--reply-tabs {
+      background-color: @gray-lighter;
+      display:flex;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+
     &--signature {
       background-color: #eee;
 
@@ -175,7 +182,7 @@
   &__info-panel {
     flex: none;
     width: 180px;
-    background-color: @blue-darker;
+    background-color: @user-color-default;
     display: flex;
     flex-direction: column;
 
@@ -263,6 +270,7 @@
     flex: 1;
     display: flex;
     flex-direction: column;
+    min-width: 0;
   }
 
   &__reply-container {

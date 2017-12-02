@@ -16,31 +16,33 @@
 #    along with osu!web.  If not, see <http://www.gnu.org/licenses/>.
 ###
 
-{button, div, p} = React.DOM
+{button, div, span, p} = ReactDOMFactories
 el = React.createElement
 
 class ProfilePage.UserPage extends React.Component
   render: =>
+    isBlank = @props.userPage.initialRaw.trim() == ''
     div className: 'page-extra',
       el ProfilePage.ExtraHeader, name: @props.name, withEdit: @props.withEdit
 
-      if !@props.userPage.editing && @props.withEdit && @props.userPage.html != ''
+      if !@props.userPage.editing && @props.withEdit && !isBlank
         div className: 'page-extra__actions',
           button
-            className: 'btn-circle btn-circle--button'
+            type: 'button'
+            className: 'btn-circle'
             onClick: @editStart
-            el Icon, name: 'edit'
+            span className: 'btn-circle__content',
+              el Icon, name: 'edit'
 
       if @props.userPage.editing
         el ProfilePage.UserPageEditor, userPage: @props.userPage
-      else if @props.withEdit && @props.userPage.html == ''
+      else if @props.withEdit && isBlank
         @pageNew()
       else
         @pageShow()
 
 
-  editStart: (e) ->
-    e.preventDefault()
+  editStart: ->
     $.publish 'user:page:update', editing: true
 
 

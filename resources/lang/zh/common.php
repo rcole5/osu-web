@@ -19,13 +19,19 @@
  */
 
 return [
-    'confirmation' => '您确定要这样做吗?',
+    'confirmation' => '确定？',
     'saved' => '已保存',
+
+    'array_and' => [
+        'words_connector' => '，',
+        'two_words_connector' => '和',
+        'last_word_connector' => '和',
+    ],
 
     'buttons' => [
         'cancel' => '取消',
         'delete' => '删除',
-        'permalink' => '永久连接',
+        'permalink' => '静态链接',
         'post' => '发送',
         'reply' => '回复',
         'reset' => '重置',
@@ -36,13 +42,20 @@ return [
     ],
 
     'count' => [
-        'item' => ':count 件', //参考翻译:件/份/个
+        'item' => ':count 个',
+    ],
+
+    'datetime' => [
+        'year_month' => [
+            'moment' => 'YYYY年 MMMM',
+            'php' => 'y年 MMMM',
+        ],
     ],
 
     'device' => [
         'keyboard' => '键盘',
         'mouse' => '鼠标',
-        'tablet' => '数位板', //板子
+        'tablet' => '数位板',
         'touch' => '触摸屏',
     ],
 

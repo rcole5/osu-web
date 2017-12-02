@@ -16,13 +16,15 @@
     along with osu!web.  If not, see <http://www.gnu.org/licenses/>.
 --}}
 <button
-    class="btn-circle btn-circle--button btn-circle--topic-nav"
+    class="btn-circle btn-circle--button btn-circle--topic-nav btn-circle--yellow"
     data-target="#forum-topic-move-modal"
     data-toggle="modal"
     type="button"
     title="{{ trans('forum.topics.moderate_move.title') }}"
 >
-    <i class="fa fa-arrows"></i>
+    <span class="btn-circle__content">
+        <i class="fa fa-arrows"></i>
+    </span>
 </button>
 
 @section('script')
@@ -39,7 +41,7 @@
 
                         <p>
                             <select name="destination_forum_id" class="form-control">
-                                @foreach (App\Models\Forum\Forum::moveDestination()->get() as $dstForum)
+                                @foreach (App\Models\Forum\Forum::displayList()->get() as $dstForum)
                                     <option value="{{ $dstForum->getKey() }}"
                                         {{ $dstForum->isOpen() ? '' : 'disabled' }}
                                         {{ $dstForum->getKey() === $topic->forum_id ? 'selected' : '' }}

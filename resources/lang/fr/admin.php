@@ -77,8 +77,15 @@ return [
     'store' => [
         'orders' => [
             'index' => [
-                'title' => 'Ordre de liste',
+                'title' => 'Liste des commandes',
             ],
+        ],
+    ],
+
+    'users' => [
+        'restricted_banner' => [
+            'title' => 'Cet utilisateur est actuellement restreint.',
+            'message' => '(uniquement les admins peuvent voir ça)',
         ],
     ],
 

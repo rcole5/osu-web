@@ -18,12 +18,12 @@
 
 .beatmap-discussion-new {
   @_avatar-size: 45px;
+  @_side-padding: 20px;
 
   .default-box-shadow();
   display: flex;
   background-color: #fff;
   flex-direction: column;
-  margin-top: 10px;
 
   &__avatar {
     flex: none;
@@ -31,62 +31,33 @@
     height: @_avatar-size;
   }
 
-  &__col {
-    background-color: #eee;
-    padding: 20px 10px;
-
-    flex: 1 0 auto;
-    display: flex;
-    justify-content: center;
-
-    @media @desktop {
-      flex: none;
-    }
-
-    &--left {
-      @media @desktop {
-        padding-left: 20px;
-      }
-
-      justify-content: center;
-    }
-
-    &--right {
-      padding-right: 20px;
-
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-    }
-
-    &--main {
-      flex: 1;
-      background-color: #fff;
-      display: flex;
-    }
-  }
-
   &__content {
     display: flex;
-    padding: 0 20px 10px;
+    padding: 0 @_side-padding 10px;
   }
 
   &__footer {
     display: flex;
     flex-wrap: wrap;
     background-color: #555;
-    padding: 5px 20px;
+    padding: 5px @_side-padding;
     justify-content: space-between;
+
+    @media @mobile {
+      width: 100%;
+      flex-direction: column;
+    }
   }
 
   &__footer-content {
-    padding: 5px 0;
+    margin: 5px 0;
     display: flex;
     flex: none;
+    .default-border-radius();
 
     &--right {
-      flex: 1;
       justify-content: flex-end;
+      flex: 1 0 auto;
     }
   }
 
@@ -105,17 +76,22 @@
     width: 100%;
 
     flex: 1 0 auto;
+    font-size: @font-size--phone-input;
+
+    @media @desktop {
+      font-size: inherit;
+    }
   }
 
-  &__message-box {
-    width: 100%;
-    display: flex;
+  &__notice {
+    background-color: #666;
+    padding: 5px @_side-padding;
+    color: #fff;
+    font-size: @font-size--normal;
   }
 
-  &__message-hint {
-    margin: 0;
-    margin-top: 5px;
-    color: @green;
+  &__notice-link {
+    .link-gray-light();
   }
 
   &__timestamp-col {
@@ -123,12 +99,17 @@
     padding: 10px;
     font-size: @font-size--small-2;
     color: #fff;
-    background-color: #444;
+    background-color: #777;
     border-radius: 0 @border-radius-base @border-radius-base 0;
+
+    @media @mobile {
+      flex-grow: 1;
+    }
 
     &--label {
       background-color: #333;
       border-radius: @border-radius-base 0 0 @border-radius-base;
+      flex-grow: 0;
     }
   }
 

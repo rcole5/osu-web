@@ -18,8 +18,9 @@
 
 @import "app";
 
+@screen-mobile-max: (@screen-sm-min - 1px);
 @desktop: ~"(min-width: @{screen-sm-min})";
-@mobile: ~"(max-width: @{screen-sm-min})";
+@mobile: ~"(max-width: @{screen-mobile-max})";
 
 @bar-size: 3px;
 @logo-size: 100px;
@@ -28,7 +29,7 @@
 // ┐(ﾟ ヮﾟ)┌
 @padding-wiki-desktop: 40px;
 
-@height--nav-popup: 205px;
+@height--nav-popup: 300px;
 
 @navbar-mobile--content-height: @navbar-height - (@navbar-padding-vertical * 2);
 
@@ -41,20 +42,25 @@
 @z-index--user-profile-avatar: 2;
 @z-index--beatmaps-panel: 4;
 @z-index--page-extra-tabs: 5;
-// navbar-static-top: 1000 (bootstrap nav for mobile)
-@z-index--forum-topic-headernav: 1001;
-@z-index--fixed-bar: 1001;
-@z-index--blackout: 1010;
-@z-index--blackout-visible: 1011;
-// modal-backdrop: 1040
-// modal: 1050
-@z-index--nav-popup: 8998;
-@z-index--nav-float: 8999;
+@zindex-navbar: 500; // bootstrap
+@zindex-dropdown: 500; // bootstrap
+@z-index--forum-topic-headernav: 501;
+@z-index--fixed-bar: 501;
+@z-index--blackout: 510;
+@z-index--blackout-visible: 511;
+@zindex-navbar-fixed: 530; // bootstrap
+@zindex-modal-background: 540; // bootstrap
+@zindex-modal: 550; // bootstrap
+@zindex-popover: 560; // bootstrap
+@zindex-tooltip: 570; // bootstrap
+@z-index--nav-popup: 998;
+@z-index--nav-float: 999;
+// Xsolla overlay: 1000
 @z-index--overlay: 9990;
-@z-index--editor-zoom: 9999;
 
 @z-index--beatmapset-header: 1;
 @z-index--contest-header: 1;
+@z-index--tournament-header: 1;
 
 @box-shadow-x: 0;
 @box-shadow-y: 1px;
@@ -82,6 +88,7 @@
 @nav-sm-height: 20px + @nav-menu-height + @nav-page-title-height;
 @nav-page-title-height: 40px;
 @nav-menu-height: 20px;
+@nav-search-icon-width: 30px;
 
 // here be font-sizes
 @font-size--small: 10px;
@@ -111,7 +118,7 @@
 @font-size--new-header-title: 30px;
 @font-size--new-header-subtitle: 14px;
 
-@font-size--new-header-title-mobile: 26px;
+@font-size--new-header-title-mobile: 24px;
 @font-size--new-header-subtitle-mobile: 12px;
 
 @font-size--forum-topic-entry-icon: 16px;
@@ -138,10 +145,17 @@
 @font-size--paginator: 12px;
 @font-size--phone-input: 16px;
 
+@font-size--support-osu-popup-body: 15px;
+@font-size--support-osu-popup-header: 48px;
+@font-size--support-osu-popup-header-smaller: 26px;
+
 @font-size--warning: 13px;
 @font-size--warning-icon: 20px;
 
 @flex-grid--gutter-width: 20px;
+
+@header-icon-size: 50px;
+@header-icon-margin: 8px;
 
 @forum-category-colour--osu-bg: @pink;
 @forum-category-colour--osu-link: @pink-text;
@@ -173,9 +187,13 @@
 @beatmap-discussion--reply-padding: (20px + @beatmap-discussion--avatar-size);
 @beatmap-discussion--timestamp-width: 110px;
 
+@beatmap-discussion--color-mapper-note: @purple;
 @beatmap-discussion--color-praise: @blue-dark;
 @beatmap-discussion--color-problem: @pink-dark;
+@beatmap-discussion--color-resolved: @green;
 @beatmap-discussion--color-suggestion: @yellow-dark;
+
+@beatmappack-listing--gutter: 20px;
 
 @section-color--default: @pink-darker;
 
@@ -188,6 +206,27 @@
 @section-color--ranking: @green-darker;
 @section-color--store: @pink-darker;
 @section-color--user: @blue-darker;
+
+@user-color-default: @blue-darker;
+
+@changelog-stream--stable: @blue;
+@changelog-stream--stable-fallback: @green;
+@changelog-stream--beta: @yellow;
+@changelog-stream--cutting-edge: @yellow;
+@changelog-stream--lazer: @red;
+@changelog-stream--lazer-experimental: @red;
+
+@changelog-stream--build-0: @purple;
+@changelog-stream--build-1: @pink;
+@changelog-stream--build-2: @blue;
+@changelog-stream--build-3: @yellow;
+@changelog-stream--build-4: @green;
+@changelog-stream--build-5: @red;
+@changelog-stream--build-6: #eee;
+@changelog-stream--build-7: #fff;
+
+@page-extra-side-padding--small: 10px;
+@page-extra-side-padding--large: 30px;
 
 @mod-width: 45px;
 @mod-height: 32px;
@@ -211,3 +250,19 @@
 @diff-hard: @pink;
 @diff-insane: @purple;
 @diff-expert: #000;
+
+// user profile detail-row
+@detail-row--bottom-min-height: 18px;
+@detail-row--score-details-gap: 2px;
+
+// store slider
+@slider-callout--arrow-height: 12px;
+@slider-callout--arrow-gap: 2px;
+@slider-callout--width: 128px;
+@slider-handle-protrusion: 5px;
+@slider-handle-height: @slider-height + 2 * @slider-handle-protrusion;
+@slider-handle-width: 10px;
+@slider-height: 10px;
+
+@usercard-width: 260px;
+@usercard-height: 100px;

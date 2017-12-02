@@ -22,12 +22,20 @@ return [
     'confirmation' => 'Are you sure?',
     'saved' => 'Saved',
 
+    'array_and' => [
+        'words_connector' => ', ',
+        'two_words_connector' => ' and ',
+        'last_word_connector' => ', and ',
+    ],
+
     'buttons' => [
         'cancel' => 'Cancel',
         'delete' => 'Delete',
         'permalink' => 'permalink',
         'post' => 'Post',
         'reply' => 'Reply',
+        'reply_reopen' => 'Reply and Reopen',
+        'reply_resolve' => 'Reply and Resolve',
         'reset' => 'Reset',
         'save' => 'Save',
         'saving' => 'Saving...',
@@ -37,6 +45,13 @@ return [
 
     'count' => [
         'item' => ':count unit|:count units',
+    ],
+
+    'datetime' => [
+        'year_month' => [
+            'moment' => 'MMMM YYYY',
+            'php' => 'MMMM y',
+        ],
     ],
 
     'device' => [

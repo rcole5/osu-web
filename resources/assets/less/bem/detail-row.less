@@ -82,7 +82,7 @@
     }
 
     &--bottom {
-      min-height: 18px;
+      min-height: @detail-row--bottom-min-height;
       align-items: flex-start;
     }
   }
@@ -96,6 +96,9 @@
     &--main {
       min-width: 150px;
       order: 2;
+      @media @mobile {
+        min-width: 100px;
+      }
     }
 
     &--mods {
@@ -104,6 +107,12 @@
         order: 1;
       }
     }
+  }
+
+  &__score-details {
+    text-align: right;
+    margin-top: @detail-row--score-details-gap;
+    min-height: @detail-row--bottom-min-height - @detail-row--score-details-gap;
   }
 
   &__text-score {

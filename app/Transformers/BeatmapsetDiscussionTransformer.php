@@ -20,7 +20,7 @@
 
 namespace App\Transformers;
 
-use App\Models\BeatmapsetDiscussion;
+use App\Models\Beatmapset;
 use App\Models\User;
 use League\Fractal;
 
@@ -28,31 +28,39 @@ class BeatmapsetDiscussionTransformer extends Fractal\TransformerAbstract
 {
     protected $availableIncludes = [
         'beatmap_discussions',
+        'beatmapset_events',
         'users',
     ];
 
-    public function transform(BeatmapsetDiscussion $discussion)
+    public function transform(Beatmapset $beatmapset)
     {
         return [
-            'id' => $discussion->id,
-            'created_at' => json_time($discussion->created_at),
-            'updated_at' => json_time($discussion->updated_at),
+            'id' => $beatmapset->id,
+            'updated_at' => json_time($beatmapset->lastDiscussionTime()),
         ];
     }
 
-    public function includeBeatmapDiscussions(BeatmapsetDiscussion $discussion)
+    public function includeBeatmapDiscussions(Beatmapset $beatmapset)
     {
         return $this->collection(
-            $discussion->beatmapDiscussions->all(),
+            $beatmapset->beatmapDiscussions,
             new BeatmapDiscussionTransformer()
         );
     }
 
-    public function includeUsers(BeatmapsetDiscussion $discussion)
+    public function includeBeatmapsetEvents(Beatmapset $beatmapset)
     {
-        $userIds = [$discussion->beatmapset->user_id];
+        return $this->collection(
+            $beatmapset->events->all(),
+            new BeatmapsetEventTransformer()
+        );
+    }
 
-        foreach ($discussion->beatmapDiscussions as $beatmapDiscussion) {
+    public function includeUsers(Beatmapset $beatmapset)
+    {
+        $userIds = [$beatmapset->user_id];
+
+        foreach ($beatmapset->beatmapDiscussions as $beatmapDiscussion) {
             if (!priv_check('BeatmapDiscussionShow', $beatmapDiscussion)->can()) {
                 continue;
             }
@@ -71,8 +79,14 @@ class BeatmapsetDiscussionTransformer extends Fractal\TransformerAbstract
             }
         }
 
+        foreach ($beatmapset->events as $event) {
+            if (priv_check('BeatmapsetEventViewUserId', $event)->can()) {
+                $userIds[] = $event->user_id;
+            }
+        }
+
         $userIds = array_unique($userIds);
-        $users = User::whereIn('user_id', $userIds)->get();
+        $users = User::with('userGroups')->whereIn('user_id', $userIds)->get();
 
         return $this->collection($users, new UserCompactTransformer());
     }

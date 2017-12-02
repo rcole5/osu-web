@@ -22,6 +22,7 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\GitHubNotFoundException;
 use App\Exceptions\GitHubTooLargeException;
+use App\Libraries\WikiRedirect;
 use App\Models\Wiki;
 use Request;
 
@@ -30,8 +31,12 @@ class WikiController extends Controller
     protected $section = 'help';
     protected $actionPrefix = 'wiki-';
 
-    public function show($path)
+    public function show($path = null)
     {
+        if ($path === null) {
+            return ujs_redirect(wiki_url());
+        }
+
         $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
         $imageExtensions = ['gif', 'jpeg', 'jpg', 'png'];
 
@@ -42,12 +47,17 @@ class WikiController extends Controller
         $page = new Wiki\Page($path, $this->locale());
 
         if ($page->page() === null) {
-            $redirect = new Wiki\Redirect($path);
-            if ($redirect->target() !== null) {
-                return ujs_redirect(route('wiki.show', $redirect->target()));
-            } else {
-                $status = 404;
+            $redirectTarget = (new WikiRedirect())->resolve($path);
+            if ($redirectTarget !== null && $redirectTarget !== $path) {
+                return ujs_redirect(wiki_url($redirectTarget));
             }
+
+            $correctPath = Wiki\Page::searchPath($path, $this->locale());
+            if ($correctPath !== null && $correctPath !== $path) {
+                return ujs_redirect(wiki_url($correctPath));
+            }
+
+            $status = 404;
         }
 
         return response()->view('wiki.show', compact('page'), $status ?? 200);

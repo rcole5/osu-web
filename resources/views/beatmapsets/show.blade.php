@@ -17,15 +17,11 @@
 --}}
 @extends("master", [
     'current_section' => 'beatmaps',
+    'pageDescription' => $beatmapset->toMetaDescription(),
 ])
 
 @section("content")
-    <div class="js-react--beatmapset-page"></div>
-    {{--
-        this should content a server side react.js render which doesn't exist in hhvm
-        because the only library for it, which is experimental, requires PHP extension
-        which isn't supported by hhvm (v8js).
-    --}}
+    <div class="js-react--beatmapset-page osu-layout osu-layout--full"></div>
 @endsection
 
 @section("script")
@@ -39,5 +35,5 @@
         {!! json_encode($countries) !!}
     </script>
 
-    <script src="{{ elixir("js/react/beatmapset-page.js") }}" data-turbolinks-track="reload"></script>
+    @include('layout._extra_js', ['src' => 'js/react/beatmapset-page.js'])
 @endsection

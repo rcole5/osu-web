@@ -16,13 +16,13 @@
 #    along with osu!web.  If not, see <http://www.gnu.org/licenses/>.
 ###
 
-{div, h1, h2} = React.DOM
+{div, h1, h2} = ReactDOMFactories
 
 MPHistory.Header = (props) ->
   div className: 'osu-layout__row osu-layout__row--page-compact',
     div className: 'osu-page-header osu-page-header--mp-history',
       div className: 'osu-page-header__title-box',
         h2 className: 'osu-page-header__title osu-page-header__title--small',
-          Lang.get 'multiplayer.match.header'
+          osu.trans 'multiplayer.match.header'
         h1 className: 'osu-page-header__title',
           props.name

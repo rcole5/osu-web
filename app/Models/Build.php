@@ -43,27 +43,40 @@ class Build extends Model
         return $this->hasMany(Changelog::class, 'build', 'version');
     }
 
+    public function scopeDefault($query)
+    {
+        $query->whereNotNull('stream_id');
+    }
+
+    public function propagationHistories()
+    {
+        return $this->hasMany(BuildPropagationHistory::class, 'build_id');
+    }
+
     public function scopeLatestByStream($query, $streamIds)
     {
-        $latestBuildIds = static::selectRaw('MAX(build_id) latest_build_id')
+        $latestBuildIds = static::default()
+            ->selectRaw('MAX(build_id) latest_build_id')
             ->whereIn('stream_id', $streamIds)
             ->groupBy('stream_id')
             ->pluck('latest_build_id');
 
-        $query->whereIn('build_id', $latestBuildIds);
+        $query->whereIn('build_id', $latestBuildIds)
+            ->orderByField('stream_id', $streamIds)
+            ->with('updateStream');
     }
 
     public function scopePropagationHistory($query)
     {
-        return $query->where('allow_bancho', true)
-            ->where('test_build', false);
+        $query->default()->where('allow_bancho', true);
     }
 
     public function versionNext()
     {
         if (!array_key_exists('versionNext', $this->cache)) {
             $this->cache['versionNext'] = static
-                ::where('build_id', '>', $this->build_id)
+                ::default()
+                ->where('build_id', '>', $this->build_id)
                 ->where('stream_id', $this->stream_id)
                 ->orderBy('build_id', 'ASC')
                 ->first();
@@ -76,7 +89,8 @@ class Build extends Model
     {
         if (!array_key_exists('versionPrevious', $this->cache)) {
             $this->cache['versionPrevious'] = static
-                ::where('build_id', '<', $this->build_id)
+                ::default()
+                ->where('build_id', '<', $this->build_id)
                 ->where('stream_id', $this->stream_id)
                 ->orderBy('build_id', 'DESC')
                 ->first();

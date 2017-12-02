@@ -30,6 +30,7 @@ class Product extends Model
         'next_shipping' => 'float',
         'promoted' => 'boolean',
         'enabled' => 'boolean',
+        'allow_multiple' => 'boolean',
     ];
 
     private $images;
@@ -115,8 +116,13 @@ class Product extends Model
                 $this->images = json_decode($this->images_json, true);
             }
 
-            return $this->images;
+            return $this->images ?? [];
         }
+    }
+
+    public function requiresShipping()
+    {
+        return $this->weight !== null;
     }
 
     public function scopeLatest($query)
@@ -128,6 +134,17 @@ class Product extends Model
             ->with('variations')
             ->orderBy('promoted', 'desc')
             ->orderBy('display_order', 'desc');
+    }
+
+    public function scopeCustomClass($query, $name)
+    {
+        return $query
+            ->where('custom_class', $name);
+    }
+
+    public function scopeEnabled($query)
+    {
+        return $query->where('enabled', true);
     }
 
     public function productsInRange()

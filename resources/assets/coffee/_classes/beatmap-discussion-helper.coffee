@@ -18,6 +18,8 @@
 
 class @BeatmapDiscussionHelper
   @formatTimestamp: (value) =>
+    return unless value?
+
     ms = value % 1000
     s = Math.floor(value / 1000) % 60
     # remaning duration goes here even if it's over an hour
@@ -28,36 +30,66 @@ class @BeatmapDiscussionHelper
 
   # don't forget to update BeatmapDiscussionsController@show
   # when changing this.
-  @hash: ({beatmapId, discussionId} = {}) =>
+  @hash: ({beatmapId, discussionId, isEvents} = {}) =>
     if discussionId?
       "#/#{discussionId}"
     else if beatmapId?
       "#:#{beatmapId}"
+    else if isEvents
+      '#events'
     else
       ''
 
 
   # see @hash
-  @hashParse: =>
-    hash = document.location.hash[1..]
+  @hashParse: (url = document.location.href) ->
+    hashStart = url.indexOf('#')
+
+    hash =
+      if hashStart == -1
+        ''
+      else
+        url.substr(hashStart + 1)
+
     id = parseInt(hash[1..], 10)
 
     if hash[0] == '/'
       discussionId: id
     else if hash[0] == ':'
       beatmapId: id
+    else if hash == 'events'
+      mode: 'events'
     else
       {}
 
 
+  @linkTimestamp: (text, classNames = []) =>
+    text
+      .replace /(^|\s|\()((\d{2}):(\d{2})[:.](\d{3})( \([\d,|]+\))?)(?=$|\s|\)|\.|,)/g, (_, prefix, text, m, s, ms, range) =>
+        "#{prefix}#{osu.link(Url.openBeatmapEditor("#{m}:#{s}:#{ms}#{range ? ''}"), text, classNames: classNames)}"
+
+
   @messageType:
     icon:
+      mapperNote: 'sticky-note-o'
       praise: 'heart'
-      suggestion: 'circle-o'
       problem: 'exclamation-circle'
+      suggestion: 'circle-o'
 
     # used for svg since it doesn't seem to have ::before pseudo-element
     iconText:
+      mapperNote: '&#xf24a;'
       praise: '&#xf004;'
-      suggestion: '&#xf10c;'
       problem: '&#xf06a;'
+      resolved: '&#xf05d;'
+      suggestion: '&#xf10c;'
+
+
+  @moderationGroup: (user) =>
+    if user.groups?
+      _.intersection(user.groups, ['admin', 'qat', 'bng'])[0]
+    else
+      switch
+        when user.isAdmin then 'admin'
+        when user.isQAT then 'qat'
+        when user.isBNG then 'bng'

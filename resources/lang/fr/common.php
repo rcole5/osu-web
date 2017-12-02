@@ -22,21 +22,34 @@ return [
     'confirmation' => 'Êtes-vous sûr?',
     'saved' => 'Sauvegardé',
 
+    'array_and' => [
+        'words_connector' => ', ',
+        'two_words_connector' => ' et ',
+        'last_word_connector' => ' et ',
+    ],
+
     'buttons' => [
         'cancel' => 'Annuler',
         'delete' => 'Supprimer',
-        'permalink' => 'lien permanent',
+        'permalink' => 'permalien',
         'post' => 'Poster',
         'reply' => 'Répondre',
         'reset' => 'Réinitialiser',
         'save' => 'Sauvegarder',
         'saving' => 'Sauvegarde...',
         'show_more' => 'Plus de résultats',
-        'delete' => 'Supprimer',
+        'upload_image' => "mettre en ligne l'image",
     ],
 
     'count' => [
         'item' => ':count objet|:count objets',
+    ],
+
+    'datetime' => [
+        'year_month' => [
+            'moment' => 'MMMM YYYY',
+            'php' => 'MMMM y',
+        ],
     ],
 
     'device' => [
@@ -65,7 +78,7 @@ return [
     ],
 
     'time' => [
-        'days_ago' => 'il y a :count|il y a:count',
+        'days_ago' => 'il y a :count jour|il y a :count jours',
         'hours_ago' => 'il y a :count heure|il y a :count heures',
         'now' => 'Maintenant',
         'remaining' => 'Temps restant',

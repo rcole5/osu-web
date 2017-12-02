@@ -27,15 +27,20 @@ return [
         'home' => [
             '_' => '主页',
             'account-edit' => '设置',
-            'getChangelog' => '更新日志',
+            'friends' => '好友',
+            'friends-index' => '好友',
+            'changelog-index' => '更新日志',
+            'changelog-show' => '版本',
             'getDownload' => '下载',
             'getIcons' => '图标',
-            'getNews' => '新闻',
+            'groups-show' => '用户组',
             'index' => 'osu!',
+            'legal-show' => '信息',
             'news-index' => '新闻',
             'news-show' => '新闻',
             'password-reset-index' => '重置密码',
-            'supportTheGame' => '支持osu!',
+            'search' => '搜索',
+            'supportTheGame' => '支持 osu!',
         ],
         'help' => [
             '_' => '帮助',
@@ -48,8 +53,9 @@ return [
             '_' => '谱面',
             'show' => '信息',
             'index' => '列表',
-            'artists' => '杰出艺术家',
-            // 'getPacks' => 'packs',
+            'artists' => '精选艺术家',
+            'packs' => '曲包',
+            'beatmapset-watches-index' => '摸图',
             // 'getCharts' => 'charts',
         ],
         'beatmapsets' => [
@@ -60,23 +66,24 @@ return [
             '_' => '排名',
             'index' => '表现',
             'performance' => '表现',
-            'charts' => 'charts',
+            'charts' => '月赛',
+            'score' => '得分',
             'country' => '国家',
-            'kudosu' => 'kudosu', //mapping相关，暂时不翻译
+            'kudosu' => 'kudosu',
         ],
         'community' => [
             '_' => '社区',
-            'dev' => 'osu!开发',
+            'dev' => 'osu! 开发',
             'getForum' => '论坛',
             'getChat' => '聊天',
             'getSupport' => '获取帮助',
             'getLive' => '直播',
             'contests' => '评选',
             'profile' => '个人资料',
-            'tournaments' => '锦标赛',
-            'tournaments-index' => '锦标赛',
-            'tournaments-show' => '锦标赛信息',
-            'forum-topic-watches-index' => '捐赠',
+            'tournaments' => '官方比赛',
+            'tournaments-index' => '官方比赛',
+            'tournaments-show' => '官方比赛信息',
+            'forum-topic-watches-index' => '订阅',
             'forum-topics-create' => '论坛',
             'forum-topics-show' => '论坛',
             'forum-forums-index' => '论坛',
@@ -88,11 +95,11 @@ return [
         ],
         'error' => [
             '_' => '错误',
-            '404' => '找不到',
-            '403' => '禁止',
+            '404' => '无法找到网页',
+            '403' => '拒绝访问',
             '401' => '权限不足',
-            '405' => '找不到',
-            '500' => '发生了一些错误',
+            '405' => '资源被禁止',
+            '500' => '内部错误',
             '503' => '维护中',
         ],
         'user' => [
@@ -111,12 +118,13 @@ return [
         ],
         'store' => [
             '_' => '商店',
+            'checkout-index' => '结账',
             'getListing' => '列表',
             'getCart' => '购物车',
 
             'getCheckout' => '结账',
             'getInvoice' => '发票',
-            'getProduct' => '商品',
+            'products-show' => '商品',
 
             'new' => 'new', //TODO 需要上下文
             'home' => 'home', //TODO 需要上下文
@@ -134,23 +142,23 @@ return [
         ],
         'admin' => [
             '_' => '管理',
-            'root' => 'index', //TODO 需要上下文
+            'root' => '主页',
             'logs-index' => '日志',
             'beatmapsets' => [
                 '_' => '谱面',
                 'covers' => '封面',
-                'show' => '细节',
+                'show' => '详细',
             ],
         ],
     ],
 
     'footer' => [
         'general' => [
-            '_' => '常规', //可能不准确
+            '_' => '网站地图',
             'home' => '主页',
-            'changelog' => '更新日志',
+            'changelog-index' => '更新日志',
             'beatmaps' => '谱面列表',
-            'download' => '下载osu!',
+            'download' => '下载 osu!',
             'wiki' => 'Wiki',
         ],
         'help' => [
@@ -161,90 +169,92 @@ return [
             'report' => '报告问题',
         ],
         'support' => [
-            '_' => '支持osu!',
+            '_' => '支持 osu!',
             'tags' => '成为支持者',
             'merchandise' => '商店',
         ],
         'legal' => [
             '_' => '法律 & 状态',
-            'tos' => '服务条款',
-            'copyright' => 'Copyright (DMCA)',
-            'serverStatus' => '服务器状态',
-            'osuStatus' => '@osustatus',
+            'copyright' => '版权（DMCA）',
+            'osu_status' => '@osustatus',
+            'server_status' => '服务器状态',
+            'terms' => '服务条款',
         ],
     ],
 
     'errors' => [
         '404' => [
-            'error' => '页面未找到',
-            'description' => '抱歉,您请求的界面不在这里!',
+            'error' => '无法找到网页',
+            'description' => '很抱歉，您访问的页面不存在...请返回到上一个页面',
             'link' => false,
         ],
         '403' => [
-            'error' => '您不应该在这里.',
-            'description' => '您可以尝试返回.',
+            'error' => '没有权限',
+            'description' => '没有权限访问该页面，建议检查一下再试，或者返回到上一个页面',
             'link' => false,
         ],
         '401' => [
-            'error' => '您不应该在这里.',
-            'description' => '您可以尝试返回,或者先登录',
+            'error' => '没有权限',
+            'description' => '没有权限访问该页面，建议检查一下再试，或者返回到上一个页面（说不定因为没登录）',
             'link' => false,
         ],
         '405' => [
-            'error' => '页面未找到',
-            'description' => '抱歉,您请求的界面不在这里!',
+            'error' => '无法找到网页',
+            'description' => '很抱歉，您访问的页面不存在...请返回到上一个页面',
             'link' => false,
         ],
         '500' => [
-            'error' => '噢,发生了一些错误',
-            'description' => '我们会自动报告每一个错误.',
+            'error' => '哎呀，服务器崩溃了',
+            'description' => '我们会自动报告每一个错误，请返回到上一个页面。',
             'link' => false,
         ],
         'fatal' => [
-            'error' => '噢,发生了一些严重的错误',
-            'description' => '我们会自动报告每一个错误.',
+            'error' => '哎呀，服务器被外星人带走了',
+            'description' => '我们会自动报告每一个错误，请返回到上一个页面。',
             'link' => false,
         ],
         '503' => [
-            'error' => '维护中!',
-            'description' => '每次维护需要5秒到10分钟的时间.如果我们维护时间太长,查看 :link 以获得更多信息.',
+            'error' => '啊哦...服务器正在维护中',
+            'description' => '每次维护需要5秒到10分钟的时间。如果维护时间太长，查看 :link 以获得更多信息。',
             'link' => [
                 'text' => '@osustatus',
                 'href' => 'https://twitter.com/osustatus',
             ],
         ],
         // used by sentry if it returns an error
-        'reference' => '以防万一,您可以将这里的代码发给我们!',
+        'reference' => '以防万一，你可以将这里的代码发给我们！',
     ],
 
     'popup_login' => [
         'login' => [
-            'email' => 'email地址',
+            'email' => '用户名/邮箱',
             'forgot' => '我忘记了我的登录信息',
             'password' => '密码',
             'title' => '登录以继续',
 
             'error' => [
-                'email' => '用户名或email不存在',
+                'email' => '用户名或邮箱不存在',
                 'password' => '密码错误',
             ],
         ],
 
         'register' => [
-            'info' => '您需要一个帐号.为什么不现在注册一个呢?',
-            'title' => '没有帐号?',
+            'info' => '点击下方的注册按钮以成为 osu! 大家庭中的一员！',
+            'title' => '没有帐号？',
         ],
     ],
 
     'popup_user' => [
         'links' => [
             'account-edit' => '设置',
+            'friends' => '好友',
             'logout' => '退出',
             'profile' => '我的资料',
         ],
     ],
 
     'popup_search' => [
-        'initial' => '输入以搜索!',
+        'initial' => '键入以搜索！',
+        'retry' => '搜索失败，点击以重试。',
     ],
 ];

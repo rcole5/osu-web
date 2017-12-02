@@ -16,7 +16,7 @@
 #    along with osu!web.  If not, see <http://www.gnu.org/licenses/>.
 ###
 
-{a, li, span, ul} = React.DOM
+{a, li, span, ul} = ReactDOMFactories
 
 class @PlaymodeTabs extends React.Component
   render: =>
@@ -39,6 +39,9 @@ class @PlaymodeTabs extends React.Component
             'data-mode': mode
             'data-disabled': disabled
             osu.trans "beatmaps.mode.#{mode}"
+            if @props.showCounts
+              count = Number(_.sumBy(@props.beatmaps[mode], (beatmap) -> !beatmap.convert))
+              span className: 'page-mode-link__badge', count if count > 0
             span className: 'page-mode-link__stripe'
 
 

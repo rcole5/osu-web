@@ -12,6 +12,10 @@
     {
       "type": "vcs",
       "url": "https://github.com/nanaya/slack-php"
+    },
+    {
+      "type": "vcs",
+      "url": "https://github.com/nanaya/commonmark-table-extension"
     }
   ],
   "require": {
@@ -22,7 +26,7 @@
     "guzzlehttp/guzzle": "^6.2",
     "itsgoingd/clockwork": "~1.9",
     "laravel/framework": "5.4.*",
-    "laravel/passport": "^2.0",
+    "laravel/passport": "^4.0",
     "laravel/tinker": "~1.0",
     "laravelcollective/html": "5.4.*",
     "league/flysystem-aws-s3-v3": "^1.0",
@@ -31,11 +35,13 @@
     "maknz/slack": "dev-laravel-5.4",
     "mariuzzo/laravel-js-localization": "*",
     "predis/predis": "~1.0",
-    "sentry/sentry-laravel": "^0.6.0",
+    "sentry/sentry-laravel": "^0.7.0",
     "shift31/laravel-elasticsearch": "~1.0",
-    "webuni/commonmark-table-extension": "^0.6.1",
+    "webuni/commonmark-table-extension": "dev-fix-escapes",
     "chaseconey/laravel-datadog-helper": "^0.6.0",
-    "tumblr/tumblr": "^0.2.0"
+    "tumblr/tumblr": "^0.2.0",
+    "xsolla/xsolla-sdk-php": "^2.6",
+    "paypal/rest-api-sdk-php": "^1.13"
   },
   "require-dev": {
     "fzaninotto/faker": "~1.4",

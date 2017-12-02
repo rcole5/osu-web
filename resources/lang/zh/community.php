@@ -22,108 +22,108 @@ return [
     'support' => [
         'header' => [
             // size in font-size
-            'big_description' => '喜欢osu!?<br/>
-                                支持osu!开发者吧 :D',
+            'big_description' => '喜欢 osu! 吗！？<br/>
+                                那就支持 osu! 开发者吧 (￣3￣)',
             'small_description' => '',
-            'support_button' => '我想支持osu!',
+            'support_button' => '我想支持 osu!',
         ],
 
-        'dev_quote' => 'osu!是一款完全免费的游戏,但是经营它却不是免费的.在我们租用服务器和高速网络,维护系统及社区,向比赛提供奖品,提供疑难解答,以及让玩家们开心的同时,osu!已经消耗了大量的金钱! 噢,别忘了我们是凭着爱好在做osu!,没有任何的广告合作!
-            <br/><br/>osu!由我一个人运营着.
-            为了维护osu!我已经辞去了我的日常工作,
-            而我时常感受到使osu!维持我所期望的质量是一件很艰难的事情.
-            我以个人的名义感谢至今为止所有支持osu!的人,
-            也包括继续支持osu!的所有人 :).',
+        'dev_quote' => 'osu! 是一款完全免费的游戏，但是经营它却不是免费的。在我们租用服务器和高速网络、维护系统及社区、向比赛提供奖品、提供疑难解答以及让玩家们开心的同时，osu! 已经消耗了大量的金钱！噢，别忘了我们是凭着爱好在做 osu! ，没有任何的广告合作！
+            <br/><br/>osu! 由我一个人运营着，
+            为了维护 osu! 我已经辞去了我的日常工作，
+            而我时常感受到使 osu! 维持我所期望的质量是一件很艰难的事情，
+            我以个人的名义感谢至今为止所有支持 osu! 的人，
+            也包括继续支持 osu! 的所有人 :)。',
 
         'why_support' => [
-            'title' => '为什么我应该支持osu!?',
+            'title' => '为什么要支持 osu! ？',
             'blocks' => [
-                'dev' => '开发和维护主要是一个澳大利亚的伙计在负责', //可能不准确
-                'time' => '运行它的消耗已经不能称得上"兴趣"了',
-                'ads' => '无广告. <br/><br/>
-                        不像99.95%的网站,我们不推送广告,也没有从中获利.',
-                'goodies' => '您还能得到特技(见下方)!', //可能不准确
+                'dev' => 'osu! 最初是 ppy 个人开发和维护的',
+                'time' => '运营它的成本和投入的精力已经超出了“兴趣”的范围',
+                'ads' => '无广告 <br/><br/>
+                        不像 99.95% 的网站，我们不推送广告，也没有从中获利。',
+                'goodies' => '解锁更多高级功能！',
             ],
         ],
 
         'perks' => [
-            'title' => '噢?我能得到什么?!',
+            'title' => '我能得到什么？',
             'osu_direct' => [
                 'title' => 'osu!direct', //不翻译
-                'description' => '您可以不离开游戏进行谱面的搜索和下载.',
+                'description' => '在游戏客户端内搜索和下载谱面。',
             ],
 
             'auto_downloads' => [
                 'title' => '自动下载',
-                'description' => '多人游戏,观看他人游戏,或是点击聊天中的谱面链接时,osu!会自动下载!',
+                'description' => '本地没有需要的谱面时，osu! 会自动下载！',
             ],
 
-            'upload_more' => [ //TODO 需要帮助
-                'title' => 'Upload More',
-                'description' => 'Additional pending beatmap slots (per ranked beatmap) up to a max of 10.',
+            'upload_more' => [
+                'title' => '上传更多谱面',
+                'description' => '谱面集中 Pending 谱面上限增加到 10 张。',
             ],
 
             'early_access' => [
                 'title' => '抢先体验',
-                'description' => '在一些特性公开之前,您将能抢先体验它们!',
+                'description' => '抢先体验正在测试中的新特性！',
             ],
 
             'customisation' => [
-                'title' => '自定义',
-                'description' => '您可以自定义您的个人资料(me!).',
+                'title' => '个性化',
+                'description' => '自定义个人资料页。',
             ],
 
             'beatmap_filters' => [
                 'title' => '谱面筛选器',
-                'description' => '您可以按照玩过和没玩过或是达到某个等级来筛选谱面.', //可能不准确
+                'description' => '更多角度的去筛选谱面。',
             ],
 
             'yellow_fellow' => [
-                'title' => '黄色高亮',
-                'description' => '您在聊天时,名字会被黄色加亮.',
+                'title' => '高亮用户名',
+                'description' => '聊天时，用户名会变成亮黄色。',
             ],
 
             'speedy_downloads' => [
                 'title' => '高速下载',
-                'description' => '您的下载限制会被放开,尤其是当您使用osu!direct的时候.',
+                'description' => '更快的下载速度，尤其是使用 osu!direct 时。',
             ],
 
             'change_username' => [
-                'title' => '变更用户名',
-                'description' => '您可以改变您的用户名而不需要额外的花费(最多1次)',
+                'title' => '修改用户名',
+                'description' => '修改用户名而不需要支付费用（最多 1 次）。',
             ],
 
             'skinnables' => [
-                'title' => '皮肤',
-                'description' => '您可以改变更多的游戏皮肤元素,比如主菜单的背景.', //可能不准确
+                'title' => '更多的定制',
+                'description' => '自定义更多的游戏界面元素，例如主菜单的背景。',
             ],
 
             'feature_votes' => [
-                'title' => '特性投票',
-                'description' => '您可以为新特性请求投票(每月2票)',
+                'title' => '新特性投票',
+                'description' => '为新特性请求投票（每月 2 票）。',
             ],
 
             'sort_options' => [
                 'title' => '排名',
-                'description' => '新添加:您可以在游戏中按 国家/好友/指定MOD 进行排名了.',
+                'description' => '查看排名时可按 国家/好友/所选MOD 进行排名。',
             ],
 
-            'feel_special' => [ //TODO 需要帮助
-                'title' => 'Feel Special',
-                'description' => 'The warm and fuzzy feeling of doing your part to keep osu! running smoothly!',
+            'feel_special' => [
+                'title' => '满足感',
+                'description' => '对 “帮助 osu! 继续运营” 感到满足！',
             ],
 
             'more_to_come' => [
-                'title' => '即将到来',
+                'title' => '更多特性即将到来',
                 'description' => '',
             ],
         ],
 
         'convinced' => [
-            'title' => 'I\'m convinced! :D', //TODO 需要帮助
-            'support' => '支持osu!',
-            'gift' => '或者给其他玩家一份礼物',
-            'instructions' => '点击爱心按钮前往osu!商店',
+            'title' => '可以可以，买买买！',
+            'support' => '支持 osu!',
+            'gift' => '或者以礼物方式赠送给其它玩家',
+            'instructions' => '点击爱心前往 osu! 商店',
         ],
     ],
 ];

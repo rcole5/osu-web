@@ -41,7 +41,8 @@ class @LandingUserStats
 
     @svg = @svgContainerInner
       .append 'g'
-      .attr 'transform', "translate(#{@margin.left}, #{@margin.top})"
+      # Ensure no blank space at the bottom at certain zoom level in Firefox.
+      .attr 'transform', "translate(#{@margin.left}, #{@margin.top + 1})"
 
     @svgArea = @svg
       .append 'path'
@@ -88,7 +89,7 @@ class @LandingUserStats
     @scaleY.domain [0, d3.max(@data, (d) -> d.y)]
 
     @svgPeakText
-      .text Lang.get('home.landing.peak', count: @maxElem.y.toLocaleString())
+      .text osu.trans('home.landing.peak', count: @maxElem.y.toLocaleString())
     @peakTextLength = @svgPeakText.node().getComputedTextLength()
 
 

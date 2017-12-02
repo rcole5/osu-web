@@ -46,12 +46,12 @@ return [
     'pinned_topics' => 'Sujets épinglés',
     'post' => [
         'confirm_destroy' => 'Vraiment supprimer ce post?',
-        'confirm_restore' => 'Vraiment restorer ce post?',
+        'confirm_restore' => 'Vraiment restaurer ce post?',
         'edited' => 'Modifié par :user le :when, édité :count fois en tout.',
         'posted_at' => 'posté :when',
         'actions' => [
-            'delete' => 'Supprimer le post',
-            'restore' => 'Restorer le post',
+            'destroy' => 'Supprimer le post',
+            'restore' => 'Restaurer le post',
             'edit' => 'Modifier le post',
         ],
     ],
@@ -61,7 +61,8 @@ return [
         'total_posts' => ':posts_count posts au total',
     ],
     'subforums' => 'Sous-forums',
-    'title' => 'Communauté osu!',
+    'title' => 'osu!community',
+    'slogan' => 'Il est dangereux de jouer seul.',
     'topic' => [
         'create' => [
             'placeholder' => [
@@ -215,8 +216,8 @@ return [
         'moderate_pin' => [
             'pin-0' => 'Désépingler le sujet',
             'pin-1' => 'Épingler le sujet',
-            'pinned-0' => 'Le sujet a été désépinglé',
-            'pinned-1' => 'Le sujet a été épinglé',
+            'state-0' => 'Le sujet a été désépinglé',
+            'state-1' => 'Le sujet a été épinglé',
         ],
 
         'show' => [

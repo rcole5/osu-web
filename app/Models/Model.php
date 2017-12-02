@@ -20,6 +20,7 @@
 
 namespace App\Models;
 
+use App\Exceptions\ModelNotSavedException;
 use App\Traits\MacroableModel;
 use Illuminate\Database\Eloquent\Model as BaseModel;
 
@@ -31,6 +32,16 @@ abstract class Model extends BaseModel
     public function getMacros()
     {
         return $this->macros ?? [];
+    }
+
+    /**
+     * Locks the current model for update with `select for update`.
+     *
+     * @return Model
+     */
+    public function lockSelf()
+    {
+        return $this->lockForUpdate()->find($this->getKey());
     }
 
     public function scopeOrderByField($query, $field, $ids)
@@ -46,5 +57,20 @@ abstract class Model extends BaseModel
         $values = array_map('strval', $ids);
 
         $query->orderByRaw($string, $values);
+    }
+
+    public function saveOrExplode($options = [])
+    {
+        $result = $this->save($options);
+
+        if ($result === false) {
+            $message = method_exists($this, 'validationErrors') ?
+                implode("\n", $this->validationErrors()->allMessages()) :
+                'failed saving model';
+
+            throw new ModelNotSavedException($message);
+        }
+
+        return $result;
     }
 }

@@ -111,7 +111,7 @@ class Forum extends Model
         return $this->hasOne(ForumCover::class, 'forum_id');
     }
 
-    public function scopeMoveDestination($query)
+    public function scopeDisplayList($query)
     {
         $query->orderBy('left_id');
     }
@@ -153,6 +153,19 @@ class Forum extends Model
         } else {
             return unserialize($value);
         }
+    }
+
+    public function getForumLastPosterColourAttribute($value)
+    {
+        if (present($value)) {
+            return "#{$value}";
+        }
+    }
+
+    public function setForumLastPosterColourAttribute($value)
+    {
+        // also functions for casting null to string
+        $this->attributes['forum_last_poster_colour'] = ltrim($value, '#');
     }
 
     // feature forum shall have extra features like sorting and voting
@@ -215,5 +228,17 @@ class Forum extends Model
     public function isOpen()
     {
         return $this->forum_type === 1;
+    }
+
+    public function toMetaDescription()
+    {
+        $stack = [trans('forum.title')];
+        foreach ($this->forum_parents as $forumId => $forumData) {
+            $stack[] = $forumData[0];
+        }
+
+        $stack[] = $this->forum_name;
+
+        return implode(' » ', $stack);
     }
 }

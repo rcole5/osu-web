@@ -16,7 +16,7 @@
 #    along with osu!web.  If not, see <http://www.gnu.org/licenses/>.
 ###
 
-{div, span, a} = React.DOM
+{div, span, a} = ReactDOMFactories
 el = React.createElement
 
 class MPHistory.Score extends React.Component
@@ -41,7 +41,7 @@ class MPHistory.Score extends React.Component
               user.username
 
             if !@props.score.multiplayer.pass
-              span className: 'mp-history-player-score__failed', Lang.get 'multiplayer.match.failed'
+              span className: 'mp-history-player-score__failed', osu.trans 'multiplayer.match.failed'
 
           el FlagCountry, country: user.country
 
@@ -65,7 +65,7 @@ class MPHistory.Score extends React.Component
                   @props.score.score.toLocaleString()
 
               div className: "mp-history-player-score__stat mp-history-player-score__stat--#{m}", key: m,
-                span className: 'mp-history-player-score__stat-label mp-history-player-score__stat-label--small', Lang.get "multiplayer.match.score.stats.#{m}"
+                span className: 'mp-history-player-score__stat-label mp-history-player-score__stat-label--small', osu.trans "multiplayer.match.score.stats.#{m}"
                 span className: "mp-history-player-score__stat-number mp-history-player-score__stat-number--#{modifier}", value
 
           div className: 'mp-history-player-score__stat-row',

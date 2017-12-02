@@ -18,7 +18,7 @@ $factory->define(App\Models\User::class, function (Faker\Generator $faker) {
     // Check username doesn't already exist
     while ($username === null) {
         if (!in_array($uname = $faker->userName, $existing_names, true)) {
-            $username = str_replace('.', ' ', $uname); // remove fullstops from username
+            $username = substr(str_replace('.', ' ', $uname), 0, 15); // remove fullstops from username
         }
     }
 
@@ -58,10 +58,13 @@ $factory->define(App\Models\User::class, function (Faker\Generator $faker) {
         'user_website' => 'http://www.google.com/',
         'user_twitter' => 'ppy',
         'user_permissions' => '',
-        'user_interests' => $faker->bs,
-        'user_occ' => $faker->catchPhrase,
-        'user_sig' => $faker->realText(155),
-        'user_from' => $faker->country,
+        'user_interests' => substr($faker->bs, 30),
+        'user_occ' => substr($faker->catchPhrase, 30),
+        'user_sig' => function () use ($faker) {
+            // avoids running if user_sig is supplied.
+            return $faker->realText(155);
+        },
+        'user_from' => substr($faker->country, 30),
         'user_regdate' => $faker->dateTimeBetween('-6 years', 'now'),
     ];
 });

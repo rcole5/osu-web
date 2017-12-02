@@ -31,17 +31,17 @@
             @include('objects._logo')
         </a>
 
-        <div class="osu-nav__col osu-nav__col--title">
-            <div class="js-nav-switch js-nav-switch--active" data-nav-mode="default">
-                <div class="osu-nav__title">
-                    {{ trans("layout.menu.{$current_section}._") }}
+        <div class="osu-nav__col osu-nav__col--title js-nav-switch js-nav-switch--active" data-nav-mode="default">
+            <div class="osu-nav__title u-ellipsis-overflow">
+                {{ trans("layout.menu.{$current_section}._") }}
 
-                    <span class="osu-nav__title-separator">
-                        <i class="fa fa-angle-right"></i>
-                    </span>
+                <span class="osu-nav__title-separator">
+                    <i class="fa fa-angle-right"></i>
+                    {{-- for title attribute --}}
+                    <span class="hidden">-</span>
+                </span>
 
-                    {{ trans("layout.menu.{$current_section}.{$current_action}") }}
-                </div>
+                {{ trans("layout.menu.{$current_section}.{$current_action}") }}
 
                 <div class="osu-nav__highlight-bar">
                     <span class="bar"></span>
@@ -49,22 +49,21 @@
             </div>
         </div>
 
-        {{-- FIXME: enable later. --}}
-        @if (false && Auth::check())
+        @if (Auth::check())
             <div class="osu-nav__col js-nav-switch js-nav-search--input-container" data-nav-mode="search" data-nav-mode-switch="0">
                 <div class="osu-nav__highlight-bar">
                     <span class="bar"></span>
                 </div>
 
                 <label class="header-search-box js-parent-focus">
-                    <input class="header-search-box__input js-nav-search--input" name="q" />
+                    <input
+                        class="header-search-box__input js-nav-search--input"
+                        name="query"
+                        data-min-length="{{ config('osu.search.minimum_length') }}"
+                    />
                     <a href="#" class="js-nav-search--run-link header-search-box__icon">
                         <i class="fa fa-fw fa-search"></i>
                     </a>
-
-                    @foreach ($search['params'] ?? [] as $name => $value)
-                        <input type="hidden" name="{{ $name }}" value="{{ $value }}">
-                    @endforeach
                 </label>
             </div>
         @endif
@@ -72,7 +71,7 @@
         @if (Auth::check())
             <div class="osu-nav__col">
                 <a
-                    href="{{ route('notifications.index') }}"
+                    href="{{ osu_url('user.inbox') }}"
                     class="notification-icon{{Auth::user()->notificationCount() > 0 ? ' notification-icon--glow' : ''}}"
                 >
                     @if (Auth::user()->notificationCount() > 0)
@@ -96,3 +95,13 @@
 @include('layout._popup')
 
 @include('layout.popup-container')
+
+@if (Auth::user() && Auth::user()->isRestricted())
+    <div class="osu-page">
+        @include('objects._notification_banner', [
+            'type' => 'alert',
+            'title' => trans('users.restricted_banner.title'),
+            'message' => trans('users.restricted_banner.message'),
+        ])
+    </div>
+@endif

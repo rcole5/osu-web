@@ -17,27 +17,36 @@
 ###
 
 class @TwitchPlayer
-  constructor: ->
+  constructor: (@turbolinksReload) ->
     @playerDivs = document.getElementsByClassName('js-twitch-player')
-    @players = {}
 
-    $(document).on 'turbolinks:load', @startAll
+    addEventListener 'turbolinks:load', @startAll
+
+
+  initializeEmbed: =>
+    @turbolinksReload.load 'https://player.twitch.tv/js/embed/v1.js', @startAll
 
 
   startAll: =>
-    for div in @playerDivs
-      @players[div.id] ?= @start(div)
+    return if @playerDivs.length == 0
+
+    if !Twitch?
+      @initializeEmbed()
+    else
+      @start(div) for div in @playerDivs
 
 
   start: (div) =>
+    return if div.dataset.twitchPlayerStarted
+
+    div.dataset.twitchPlayerStarted = true
     options =
       width: '100%'
       height: '100%'
       channel: div.dataset.channel
 
     player = new Twitch.Player(div.id, options)
-    player.addEventListener 'playing', => @openPlayer(div)
-    player
+    player.addEventListener Twitch.Player.PLAY, => @openPlayer(div)
 
 
   noCookieDiv: (playerDivId) =>
@@ -45,7 +54,7 @@ class @TwitchPlayer
 
 
   openPlayer: (div) =>
-    return if !div.classList.contains 'hidden'
+    return unless div.classList.contains 'hidden'
 
-    div.classList.remove 'hidden' for div in @playerDivs
+    div.classList.remove 'hidden'
     Fade.out @noCookieDiv(div.id)

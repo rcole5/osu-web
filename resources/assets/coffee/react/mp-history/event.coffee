@@ -16,7 +16,7 @@
 #    along with osu!web.  If not, see <http://www.gnu.org/licenses/>.
 ###
 
-{div, span, a} = React.DOM
+{div, span, a} = ReactDOMFactories
 el = React.createElement
 
 class MPHistory.Event extends React.Component
@@ -40,7 +40,7 @@ class MPHistory.Event extends React.Component
 
     div className: 'mp-history-event',
       div className: 'mp-history-event__time',
-        moment(@props.event.timestamp).format 'HH:mm:ss'
+        moment(@props.event.timestamp).format 'LT'
       div className: "mp-history-event__type mp-history-event__type--#{event_type}",
         @icons[event_type].map (m) ->
           el Icon, name: m, key: m

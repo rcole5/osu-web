@@ -16,13 +16,13 @@
 #    along with osu!web.  If not, see <http://www.gnu.org/licenses/>.
 ###
 
-{div, span, a, ol, li} = React.DOM
+{div, span, a, ol, li} = ReactDOMFactories
 el = React.createElement
 
 bn = 'beatmapset-mapping'
 
 @BeatmapsetMapping = ({user, beatmapset}) ->
-  dateFormat = 'MMM D, YYYY'
+  dateFormat = 'LL'
   user ?= beatmapset.user
 
   div className: bn,

@@ -16,48 +16,47 @@
 #    along with osu!web.  If not, see <http://www.gnu.org/licenses/>.
 ###
 
-{div, h2, h3, ul, li, a, p, pre, span} = React.DOM
+{div, h2, h3, ul, li, a, p, pre, span} = ReactDOMFactories
 el = React.createElement
 
-ProfilePage.TopRanks = React.createClass
-  mixins: [React.addons.PureRenderMixin]
-
-  getInitialState: ->
-    showingBest: 5
-    showingFirst: 5
-
-
-  _showMore: (key, e) ->
-      e.preventDefault()
-
-      @setState "#{key}": (@state[key] + 5)
-
-
-  render: ->
+class ProfilePage.TopRanks extends React.PureComponent
+  render: =>
     div
       className: 'page-extra'
       el ProfilePage.ExtraHeader, name: @props.name, withEdit: @props.withEdit
 
       div null,
         h3 className: 'page-extra__title page-extra__title--small', osu.trans('users.show.extra.top_ranks.best.title')
-        if @props.scoresBest && @props.scoresBest.length
+        if @props.scoresBest?.length
           div className: 'profile-extra-entries',
             @props.scoresBest.map (score, i) =>
-              el PlayDetail, key: i, score: score, shown: i <  @state.showingBest
-            if @state.showingBest < @props.scoresBest.length
-              li className: 'profile-extra-entries__item profile-extra-entries__item--show-more',
-                a href: '#', onClick: @_showMore.bind(@, 'showingBest'), osu.trans('common.buttons.show_more')
+              el PlayDetail, key: i, score: score
+            li className: 'profile-extra-entries__item profile-extra-entries__item--show-more',
+              el ProfilePage.ShowMoreLink,
+                collection: @props.scoresBest
+                propertyName: 'scoresBest'
+                pagination: @props.pagination['scoresBest']
+                route: laroute.route 'users.scores',
+                  user: @props.user.id
+                  type: 'best'
+                  mode: @props.currentMode
         else
           p className: 'profile-extra-entries', osu.trans('users.show.extra.top_ranks.empty')
 
       div null,
         h3 className: 'page-extra__title page-extra__title--small', osu.trans('users.show.extra.top_ranks.first.title')
-        if @props.scoresFirst && @props.scoresFirst.length
+        if @props.scoresFirsts?.length
           div className: 'profile-extra-entries',
-            @props.scoresFirst.map (score, i) =>
-              el PlayDetail, key: i, score: score, shown: i < @state.showingFirst
-            if @state.showingFirst < @props.scoresFirst.length
-              li className: 'profile-extra-entries__item profile-extra-entries__item--show-more',
-                a href: '#', onClick: @_showMore.bind(@, 'showingFirst'), osu.trans('common.buttons.show_more')
+            @props.scoresFirsts.map (score, i) =>
+              el PlayDetail, key: i, score: score
+            li className: 'profile-extra-entries__item profile-extra-entries__item--show-more',
+              el ProfilePage.ShowMoreLink,
+                collection: @props.scoresFirsts
+                propertyName: 'scoresFirsts'
+                pagination: @props.pagination['scoresFirsts']
+                route: laroute.route 'users.scores',
+                  user: @props.user.id
+                  type: 'firsts'
+                  mode: @props.currentMode
         else
           p className: 'profile-extra-entries', osu.trans('users.show.extra.top_ranks.empty')

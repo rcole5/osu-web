@@ -19,7 +19,7 @@
 @extends('master', [
     'body_additional_classes' => 'osu-layout--body-333',
     'title' => null,
-    'titleAppend' => (present($page->subtitle()) ? $page->subtitle().' / ' : '').$page->title(),
+    'titleAppend' => $page->title(true),
 ])
 
 @section('content')
@@ -37,65 +37,58 @@
                 </h1>
             </div>
 
-            @if (!empty($page->locales()))
-                <div class="osu-page-header__actions">
-                    <div class="forum-post-actions">
+            <div class="osu-page-header__actions">
+                <div class="forum-post-actions">
+                    <div class="forum-post-actions__action">
+                        <a
+                            class="btn-circle"
+                            href="{{ $page->editUrl() }}"
+                            title="{{ trans('wiki.show.edit.link') }}"
+                            data-tooltip-position="left center"
+                        >
+                            <span class="btn-circle__content">
+                                <i class="fa fa-github"></i>
+                            </span>
+                        </a>
+                    </div>
+
+                    @if (priv_check('WikiPageRefresh')->can())
                         <div class="forum-post-actions__action">
-                            <a
+                            <button
+                                type="button"
                                 class="btn-circle"
-                                href="{{ $page->editUrl() }}"
-                                title="{{ trans('wiki.show.edit.link') }}"
+                                data-remote="true"
+                                data-url="{{ route('wiki.show', [$page->path]) }}"
+                                data-method="PUT"
+                                title="{{ trans('wiki.show.edit.refresh') }}"
                                 data-tooltip-position="left center"
                             >
-                                <i class="fa fa-github"></i>
-                            </a>
-                        </div>
-
-                        @if (priv_check('WikiPageRefresh')->can())
-                            <div class="forum-post-actions__action">
-                                <a
-                                    class="btn-circle"
-                                    href="#"
-                                    data-remote="true"
-                                    data-method="PUT"
-                                    title="{{ trans('wiki.show.edit.refresh') }}"
-                                    data-tooltip-position="left center"
-                                >
+                                <span class="btn-circle__content">
                                     <i class="fa fa-refresh"></i>
-                                </a>
-                            </div>
-                        @endif
-                    </div>
+                                </span>
+                            </button>
+                        </div>
+                    @endif
                 </div>
-            @endif
+            </div>
         </div>
     </div>
 
     <div class="osu-page osu-page--wiki">
-        @if (count($page->locales()) > 0)
-            <div class="wiki-language-list">
-                <div class="wiki-language-list__header">
-                    {{ trans('wiki.show.languages') }}:
+        @if ($page->page() !== null && $page->locale !== $page->requestedLocale)
+            <div class="wiki-notice">
+                <div class="wiki-notice__box">
+                    {{ trans('wiki.show.fallback_translation', ['language' => locale_name($page->requestedLocale)]) }}
                 </div>
-
-                @foreach ($page->locales() as $locale)
-                    @if ($locale === $page->requestedLocale)
-                        <span class="wiki-language-list__item wiki-language-list__item--current">
-                            {{ App\Libraries\LocaleMeta::nameFor($locale) }}
-                        </span>
-                    @else
-                        <a class="wiki-language-list__item wiki-language-list__item--link" href="?locale={{ $locale }}">
-                            {{ App\Libraries\LocaleMeta::nameFor($locale) }}
-                        </a>
-                    @endif
-                @endforeach
             </div>
         @endif
 
-        @if ($page->page() !== null && $page->locale !== $page->requestedLocale)
-            <div class="wiki-fallback-locale">
-                <div class="wiki-fallback-locale__box">
-                    {{ trans('wiki.show.fallback_translation', ['language' => locale_name($page->requestedLocale)]) }}
+        @if ($page->isOutdated())
+            <div class="wiki-notice">
+                <div class="wiki-notice__box">
+                    {!! trans('wiki.show.outdated._', [
+                        'default' => '<a href="'.e(wiki_url($page->path, config('app.fallback_locale'))).'">'.e(trans('wiki.show.outdated.default')).'</a>',
+                    ]) !!}
                 </div>
             </div>
         @endif
@@ -126,11 +119,7 @@
                     {!! $page->page()['output'] !!}
                 @else
                     <div class="wiki-content">
-                        @if (empty($page->locales()))
-                            {{ trans('wiki.show.missing') }}
-                        @else
-                            {{ trans('wiki.show.missing_translation') }}
-                        @endif
+                        {{ trans('wiki.show.missing') }}
                     </div>
                 @endif
             </div>

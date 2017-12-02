@@ -78,6 +78,12 @@ return [
 
     'locale' => 'en',
 
+    /*
+     * Make sure to check locale name in timeago, momentjs, and carbon.
+     * Carbon is in Http\Middleware\SetLocale (no helper... yet?).
+     * momentjs and timeago are in helper (locale_for_*).
+     * Check respective packages for supported list of languages.
+     */
     'available_locales' => [
         // separate the default
         'en',
@@ -86,9 +92,11 @@ return [
         'es',
         'fr',
         'it',
+        'ko',
         'nl',
         'pl',
         'pt-br',
+        'ru',
         'zh',
     ],
 
@@ -261,7 +269,6 @@ return [
         'GitHub' => GrahamCampbell\GitHub\Facades\GitHub::class,
 
         'Slack' => Maknz\Slack\Facades\Slack::class,
-        'Authorizer' => LucaDegasperi\OAuth2Server\Facades\Authorizer::class,
         'Sentry' => Sentry\SentryLaravel\SentryFacade::class,
         'Datadog' => ChaseConey\LaravelDatadogHelper\Datadog::class,
     ],

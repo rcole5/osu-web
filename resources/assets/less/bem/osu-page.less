@@ -69,6 +69,10 @@
     margin-bottom: 10px;
   }
 
+  &--full {
+    flex: 1 0 auto;
+  }
+
   &--generic {
     .default-box-shadow();
     background-color: #fff;
@@ -81,7 +85,7 @@
     background-color: #333;
   }
 
-  &--header-news {
+  &--header-news, &--groups {
     .default-box-shadow();
     background-color: #333;
     margin-bottom: 10px;
@@ -102,6 +106,13 @@
     }
   }
 
+  &--rankings {
+    .default-box-shadow();
+    margin-bottom: 10px;
+    padding: 15px 20px 0;
+    background-color: #333;
+  }
+
   &--small {
     .width(20px);
     @media @desktop {
@@ -118,6 +129,13 @@
   &--stg-block {
     .default-box-shadow();
     margin: 10px 0;
+  }
+
+  &--tournament {
+    @media @desktop {
+      .width-desktop(20px);
+      margin-bottom: 10px;
+    }
   }
 
   &--users-show-header {
@@ -141,5 +159,10 @@
       padding-left: @padding-wiki-desktop;
       padding-right: @padding-wiki-desktop;
     }
+  }
+
+  // color overrides goes here
+  &--dark-bg {
+    background-color: #333;
   }
 }

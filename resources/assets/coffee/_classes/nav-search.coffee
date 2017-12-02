@@ -18,7 +18,7 @@
 
 class @NavSearch
   constructor: ->
-    @debouncedRun = _.debounce @run, 1000
+    @debouncedRun = _.debounce @run, 250
 
     # weird metric otherwise
     $(document).on 'turbolinks:load', =>
@@ -38,37 +38,43 @@ class @NavSearch
     if mode == 'search'
       $('.js-nav-search--input').focus()
 
-      if $('.js-nav-search--result').html().length > 0
+      if $('.js-nav-search--result').html().trim().length > 0
         @setMode 'result'
     else
       @setMode 'initial'
 
 
   padResult: =>
-    $container = $('.js-nav-search--container')
-    $reference = $('.js-nav-search--popup-width-reference')
-    $inputContainer = $('.js-nav-search--input-container')
+    inputContainer = document.querySelector('.js-nav-search--input-container')
 
-    inputRight = $inputContainer[0].getBoundingClientRect().right
-    containerRight = $reference[0].getBoundingClientRect().right
+    return unless inputContainer?
+
+    $container = $('.js-nav-search--right-padded')
+    reference = document.querySelector('.js-nav-search--popup-width-reference')
+
+    inputRight = inputContainer.getBoundingClientRect().right
+    containerRight = reference.getBoundingClientRect().right
 
     $container
       .css 'padding-right', containerRight - inputRight
 
 
   run: =>
-    query = $('.js-nav-search--input').val().trim()
+    input = document.getElementsByClassName('js-nav-search--input')[0]
+    query = input.value.trim()
 
-    if query.length < 3
+    if query.length < parseInt(input.dataset.minLength)
       $('.js-nav-search--result').text('')
       return @setMode 'initial'
 
     @setMode 'loading'
 
     @abort()
-    @xhr = $.get laroute.route('search'), q: query
+    @xhr = $.get laroute.route('quick-search'), query: query
       .done @showResult
-      .fail => @setMode 'fail'
+      .fail (_xhr, status) =>
+        return if status == 'abort'
+        @setMode 'fail'
 
 
   setMode: (newMode) =>

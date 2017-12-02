@@ -16,7 +16,7 @@
 #    along with osu!web.  If not, see <http://www.gnu.org/licenses/>.
 ###
 
-{div, img} = React.DOM
+{div, img} = ReactDOMFactories
 el = React.createElement
 
 class ProfilePage.AchievementBadge extends React.Component
@@ -108,4 +108,4 @@ class ProfilePage.AchievementBadge extends React.Component
               div
                 className: 'tooltip-achievement__date'
                 osu.trans 'users.show.extra.achievements.achieved-on',
-                  date: moment(@props.userAchievement.achieved_at).format 'Do MMM YYYY'
+                  date: moment(@props.userAchievement.achieved_at).format 'll'

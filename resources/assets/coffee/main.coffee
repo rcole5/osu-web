@@ -17,7 +17,9 @@
 ###
 
 @polyfills ?= new Polyfills
-
+Lang.setLocale(currentLocale)
+Lang.setFallback(fallbackLocale)
+jQuery.timeago.settings.allowFuture = true
 
 # loading animation overlay
 # fired from turbolinks
@@ -27,14 +29,18 @@ $(document).on 'turbolinks:request-end', LoadingOverlay.hide
 $(document).on 'submit', 'form', (e) ->
   LoadingOverlay.show() if e.currentTarget.dataset.loadingOverlay != '0'
 
+$(document).on 'turbolinks:load', ->
+  BeatmapPack.initialize()
+  StoreSupporterTag.initialize()
+  StoreCheckout.initialize()
 
 @accountEdit ?= new AccountEdit
 @accountEditPlaystyle ?= new AccountEditPlaystyle
-@turbolinksDisable ?= new TurbolinksDisable
 @accountEditAvatar ?= new AccountEditAvatar
+@beatmapsetDownloadObserver ?= new BeatmapsetDownloadObserver
+@changelogChartLoader ?= new ChangelogChartLoader
 @checkboxValidation ?= new CheckboxValidation
 @currentUserObserver ?= new CurrentUserObserver
-@editorZoom ?= new EditorZoom
 @fancyGraph ?= new FancyGraph
 @formClear ?= new FormClear
 @formError ?= new FormError
@@ -43,36 +49,40 @@ $(document).on 'submit', 'form', (e) ->
 @forum ?= new Forum
 @forumAutoClick ?= new ForumAutoClick
 @forumCover ?= new ForumCover
+@forumTopicTitle ?= new ForumTopicTitle
 @gallery ?= new Gallery
 @globalDrag ?= new GlobalDrag
 @landingGraph ?= new LandingGraph
 @landingHero ?= new LandingHero
 @menu ?= new Menu
 @nav ?= new Nav
-# FIXME: enable later.
-#@navSearch ?= new NavSearch
+@navSearch ?= new NavSearch
 @osuAudio ?= new OsuAudio
 @osuLayzr ?= new OsuLayzr
 @parentFocus ?= new ParentFocus
 @postPreview ?= new PostPreview
-@reactTurbolinks ||= new ReactTurbolinks
+@reactTurbolinks ?= new ReactTurbolinks
 @replyPreview ?= new ReplyPreview
 @scale ?= new Scale
+@search ?= new Search
 @stickyFooter ?= new StickyFooter
 @stickyHeader ?= new StickyHeader
 @syncHeight ?= new SyncHeight
 @throttledWindowEvents ?= new ThrottledWindowEvents
 @timeago ?= new Timeago
 @tooltipDefault ?= new TooltipDefault
-@turbolinksDisqus ?= new TurbolinksDisqus
+@turbolinksReload ?= new TurbolinksReload
 @twitchPlayer ?= new TwitchPlayer
 @wiki ?= new Wiki
+@userCard ?= new UserCard
 
 @formConfirmation ?= new FormConfirmation(@formError)
 @forumPostsSeek ?= new ForumPostsSeek(@forum)
 @forumSearchModal ?= new ForumSearchModal(@forum)
 @forumTopicPostJump ?= new ForumTopicPostJump(@forum)
 @forumTopicReply ?= new ForumTopicReply(@forum, @stickyFooter)
+@turbolinksDisable ?= new TurbolinksDisable(@turbolinksReload)
+@turbolinksDisqus ?= new TurbolinksDisqus(@turbolinksReload)
 @userLogin ?= new UserLogin(@nav)
 @userVerification ?= new UserVerification(@nav)
 
@@ -88,11 +98,17 @@ $(document).on 'keydown', (e) ->
 reactTurbolinks.register 'countdownTimer', CountdownTimer, (e) ->
   deadline: e.dataset.deadline
 
+# Globally init friend buttons
+reactTurbolinks.register 'friendButton', FriendButton, (target) ->
+  container: target
+  user_id: parseInt(target.dataset.target)
+
+reactTurbolinks.register 'beatmapset-panel', BeatmapsetPanel, (el) ->
+  JSON.parse(el.dataset.beatmapsetPanel)
+
 rootUrl = "#{document.location.protocol}//#{document.location.host}"
 rootUrl += ":#{document.location.port}" if document.location.port
 rootUrl += '/'
-
-jQuery.timeago.settings.allowFuture = true
 
 # Internal Helper
 $.expr[':'].internal = (obj, index, meta, stack) ->

@@ -17,15 +17,21 @@
  */
 
 .page-mode-link {
-  @_top: page-mode-link;
+  @top: page-mode-link;
+  @_post-reply-active: @pink-darker;
   .link-plain();
   .link-gray-light();
   font-weight: 300;
   padding: 5px 0 10px;
+  display: flex;
 
-  &--is-active {
+  &.js-is-active, &--is-active {
     font-weight: 600;
     color: #fff;
+
+    &.@{top}--post-reply {
+      color: @_post-reply-active;
+    }
   }
 
   &--white {
@@ -36,9 +42,34 @@
     .link-gray-555();
     cursor: default;
 
-    &.@{_top}--white {
+    &.@{top}--white {
       .link-white();
       opacity: 0.5;
+    }
+  }
+
+  &--post-reply {
+    padding-left: 0;
+    padding-right: 0;
+    color: #555;
+    font-weight: 500;
+
+    .link-hover({
+      color: @_post-reply-active;
+    });
+  }
+
+  &__badge {
+    .default-border-radius();
+    padding: 2px 5px;
+    font-size: 80%;
+    font-weight: bold;
+    margin-left: 5px;
+    background-color: @link-gray-light;
+    color: #555;
+
+    .@{top}:hover & {
+      background-color: @link-gray-light-hover;
     }
   }
 
@@ -47,6 +78,7 @@
     width: 100%;
     display: block;
     bottom: 0;
+    left: 0;
     height: 5px;
     transform: translateY(5px) scaleY(0);
     transition: transform 120ms ease-in-out;
@@ -56,12 +88,17 @@
       background-color: #000;
     }
 
-    .@{_top}--is-active &,
-    .@{_top}:hover & {
+    .@{top}--post-reply & {
+      background-color: @_post-reply-active;
+    }
+
+    .@{top}.js-is-active &,
+    .@{top}--is-active &,
+    .@{top}:hover & {
       transform: translateY(0) scaleY(1);
     }
 
-    .@{_top}--is-disabled & {
+    .@{top}--is-disabled & {
       opacity: 0;
     }
   }

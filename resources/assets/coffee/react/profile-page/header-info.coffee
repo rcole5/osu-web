@@ -16,7 +16,7 @@
 #    along with osu!web.  If not, see <http://www.gnu.org/licenses/>.
 ###
 
-{div, h1, span} = React.DOM
+{div, h1, span} = ReactDOMFactories
 el = React.createElement
 
 ProfilePage.HeaderInfo = ({user}) ->
@@ -36,4 +36,4 @@ ProfilePage.HeaderInfo = ({user}) ->
     div
       className: 'profile-info__bar hidden-xs'
       style:
-        backgroundColor: "##{user.profile_colour}" if user.profile_colour?
+        backgroundColor: user.profile_colour

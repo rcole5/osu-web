@@ -23,12 +23,17 @@
 ])
 
 @section("content")
-    <div class="js-react--profile-page"></div>
-    {{--
-        this should content a server side react.js render which doesn't exist in hhvm
-        because the only library for it, which is experimental, requires PHP extension
-        which isn't supported by hhvm (v8js).
-    --}}
+    @if (Auth::user() && Auth::user()->isAdmin() && $user->isRestricted())
+        <div class="osu-page">
+            @include('objects._notification_banner', [
+                'type' => 'warning',
+                'title' => trans('admin.users.restricted_banner.title'),
+                'message' => trans('admin.users.restricted_banner.message'),
+            ])
+        </div>
+    @endif
+
+    <div class="js-react--profile-page osu-layout osu-layout--full"></div>
 @endsection
 
 @section ("script")
@@ -38,13 +43,11 @@
         var postEditorToolbar = {!! json_encode(["html" => render_to_string('forum._post_toolbar')]) !!};
     </script>
 
-    <script id="json-user" type="application/json">
-        {!! json_encode($userArray) !!}
-    </script>
+    @foreach ($jsonChunks as $name => $data)
+        <script id="json-{{$name}}" type="application/json">
+            {!! json_encode($data) !!}
+        </script>
+    @endforeach
 
-    <script id="json-achievements" type="application/json">
-        {!! json_encode($achievements) !!}
-    </script>
-
-    <script src="{{ elixir("js/react/profile-page.js") }}" data-turbolinks-track="reload"></script>
+    @include('layout._extra_js', ['src' => 'js/react/profile-page.js'])
 @endsection

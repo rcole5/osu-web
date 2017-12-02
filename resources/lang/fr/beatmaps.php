@@ -32,18 +32,18 @@ return [
     ],
 
     'discussions' => [
-        'allow_kudosu' => 'permettre le kudosu',
+        'allow_kudosu' => 'accorder le kudosu',
         'delete' => 'supprimer',
         'deleted' => 'supprimé par :editor :delete_time',
-        'deny_kudosu' => 'interdire le kudosu',
+        'deny_kudosu' => 'refuser le kudosu',
         'edit' => 'éditer',
-        'edited' => 'Dernière édition par :editor :update_time',
+        'edited' => 'Dernière modification par :editor :update_time',
         'message_placeholder' => 'Écrivez ici pour poster',
-        'message_type_select' => 'Select Comment Type',
-        'reply_placeholder' => 'Type your response here',
-        'require-login' => 'Please login to post or reply',
-        'resolved' => 'Resolved',
-        'restore' => 'restore',
+        'message_type_select' => 'Sélectionnez un type de commentaire',
+        'reply_placeholder' => 'Écrivez votre réponse ici',
+        'require-login' => 'Veuillez vous connecter pour poster ou répondre',
+        'resolved' => 'Résolu',
+        'restore' => 'restaurer',
         'title' => 'Discussions',
 
         'collapse' => [
@@ -53,7 +53,7 @@ return [
 
         'empty' => [
             'empty' => 'Pas de discussion !',
-            'filtered' => 'Aucune discussion ne correspond à vos critères.',
+            'hidden' => 'Aucune discussion ne correspond à vos critères.',
         ],
 
         'message_hint' => [
@@ -61,40 +61,40 @@ return [
             'in_timeline' => 'Pour modder plusieurs temps, faites plusieurs posts (un post par temps).',
         ],
 
-        'message_placeholder' => 'Tapez ici pour poster',
-
         'message_type' => [
             'praise' => 'Hommage',
             'problem' => 'Problème',
             'suggestion' => 'Suggestion',
         ],
 
-        'message_type_select' => 'Sélectionner le type de commentaire',
-
         'mode' => [
             'general' => 'Général',
+            'general_all' => 'Général (toutes difficultées)',
             'timeline' => 'Chronologie',
         ],
 
-        'require-login' => 'Connectez-vous pour poster ou répondre',
-        'resolved' => 'Résolu',
+        'new' => [
+            'timestamp' => 'Horodatage',
+            'timestamp_missing' => 'ctrl-c en mode édition et collez votre message pour ajouter un horodatage !',
+            'title' => 'Nouvelle Discussion',
+        ],
 
         'show' => [
             'title' => 'Discussion de la beatmap',
         ],
 
         'stats' => [
+            'deleted' => 'Supprimé',
             'mine' => 'Moi',
             'pending' => 'En attente',
             'praises' => 'Hommages',
             'resolved' => 'Résolu',
-            'total' => 'Total',
         ],
     ],
 
     'nominations' => [
         'disqualifed-at' => 'disqualifiée :time_ago (:reason).',
-        'disqualifed_no_reason' => 'aucune raison spcécifiée',
+        'disqualifed_no_reason' => 'aucune raison spécifiée',
         'disqualification-prompt' => 'Raison de la disqualification?',
         'disqualify' => 'Disqualifier',
         'incorrect-state' => "Erreur lors de l'action, merci de réesayer.",
@@ -112,6 +112,14 @@ return [
             'options' => 'Plus de critères de recherche',
             'not-found' => 'Aucun résultat',
             'not-found-quote' => '... non, rien trouvé.',
+            'filters' => [
+                'mode' => 'Mode',
+                'status' => 'Statut du Classement',
+                'genre' => 'Genre',
+                'language' => 'Langue',
+                'extra' => 'supplément',
+                'rank' => 'Rang Atteint',
+            ],
         ],
         'mode' => 'Mode',
         'status' => 'Classification',
@@ -132,7 +140,6 @@ return [
         'approved' => 'Approuvée',
         'loved' => 'Loved',
         'faves' => 'Favoris',
-        'modreqs' => 'Requêtes de mods',
         'pending' => 'En attente',
         'graveyard' => 'Cimetière',
         'my-maps' => 'Mes maps',
@@ -170,7 +177,7 @@ return [
         '8K' => '8K',
         'FI' => 'Fade In',
         '9K' => '9K',
-        'NM' => 'No mods',
+        'NM' => 'Sans mods',
     ],
     'language' => [
         'any' => 'Tous',
@@ -183,7 +190,7 @@ return [
         'korean' => 'Coréen',
         'spanish' => 'Espagnol',
         'swedish' => 'Suédois',
-        'instrumental' => 'Instrumentales',
+        'instrumental' => 'Instrumentale',
         'other' => 'Autre',
     ],
     'extra' => [
@@ -192,9 +199,9 @@ return [
     ],
     'rank' => [
         'any' => "N'importe",
-        'XH' => "SS d'argent",
+        'XH' => 'SS argenté',
         'X' => 'SS',
-        'SH' => "S d'argent",
+        'SH' => 'S argenté',
         'S' => 'S',
         'A' => 'A',
         'B' => 'B',

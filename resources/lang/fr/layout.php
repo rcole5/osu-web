@@ -20,20 +20,26 @@
 
 return [
     'defaults' => [
-        'page_description' => 'osu! - Le rythme est à un seul *clic*!  Avec Ouendan/EBA, Taiko et les modes originaux de gameplay, avec un éditeur de niveau complet.',
+        'page_description' => 'osu! - Le rythme est à un seul *clic* !  Avec Ouendan/EBA, Taiko et les modes originaux de gameplay, avec un éditeur de niveau complet.',
     ],
 
     'menu' => [
         'home' => [
             '_' => 'accueil',
             'account-edit' => 'paramètres',
+            'friends' => 'amis',
+            'friends-index' => 'amis',
             'getChangelog' => 'notes de MàJ',
             'getDownload' => 'télécharger',
             'getIcons' => 'icônes',
-            'getNews' => 'nouvelles',
+            'groups-show' => 'groupes',
             'index' => 'osu!',
-            'supportTheGame' => 'supporter le jeu',
+            'legal-show' => 'information',
+            'news-index' => 'actualités',
+            'news-show' => 'actualités',
             'password-reset-index' => 'réinitialiser le mot de passe',
+            'search' => 'rechercher',
+            'supportTheGame' => 'supporter le jeu',
         ],
         'help' => [
             '_' => 'aide',
@@ -47,11 +53,11 @@ return [
             'show' => 'info',
             'index' => 'liste',
             'artists' => 'artistes plébiscités',
-            // 'getPacks' => 'packs',
+            'packs' => 'collections',
             // 'getCharts' => 'graphiques',
         ],
         'beatmapsets' => [
-            '_' => 'sets de beatmap',
+            '_' => 'beatmaps',
             'discussion' => 'modding',
         ],
         'rankings' => [
@@ -59,6 +65,7 @@ return [
             'index' => 'performance',
             'performance' => 'performance',
             'charts' => 'graphiques',
+            'score' => 'score',
             'country' => 'pays',
             'kudosu' => 'kudosu',
         ],
@@ -108,13 +115,13 @@ return [
             'help' => 'Aide',
         ],
         'store' => [
-            '_' => 'Magasin',
+            '_' => 'magasin',
             'getListing' => 'liste',
             'getCart' => 'panier',
 
             'getCheckout' => 'acheter',
             'getInvoice' => 'facture',
-            'getProduct' => 'produit',
+            'products-show' => 'produit',
 
             'new' => 'nouveau',
             'home' => 'accueil',
@@ -165,17 +172,17 @@ return [
         ],
         'legal' => [
             '_' => 'Statut & Légal',
-            'tos' => 'Conditions du service',
             'copyright' => 'Copyright (DMCA)',
-            'serverStatus' => 'Statut du serveur',
-            'osuStatus' => '@osustatus',
+            'osu_status' => '@osustatus',
+            'server_status' => 'Statut du serveur',
+            'terms' => 'Conditions du service',
         ],
     ],
 
     'errors' => [
         '404' => [
             'error' => 'Page manquante',
-            'description' => "Désolé, mais la page demandée n'est pas ici!",
+            'description' => "Désolé, mais la page demandée n'est pas ici !",
             'link' => false,
         ],
         '403' => [
@@ -190,16 +197,16 @@ return [
         ],
         '405' => [
             'error' => 'Page manquante',
-            'description' => "Désolé, mais la page demandée n'est pas ici!",
+            'description' => "Désolé, mais la page demandée n'est pas ici !",
             'link' => false,
         ],
         '500' => [
-            'error' => 'Oh non! Quelque chose a cassé! ;_;',
+            'error' => "Oh non ! Quelque chose s'est cassé ! ;_;",
             'description' => 'Nous avons été notifié automatiquement de cette erreur.',
             'link' => false,
         ],
         'fatal' => [
-            'error' => 'Oh non! Quelque chose a cassé! (gravement) ;_;',
+            'error' => "Oh non ! Quelque chose s'est cassé ! (gravement) ;_;",
             'description' => 'Nous avons été notifié automatiquement de cette erreur.',
             'link' => false,
         ],
@@ -212,37 +219,39 @@ return [
             ],
         ],
         // used by sentry if it returns an error
-        'reference' => 'Juste au cas où, voici un code que vous pourrez retourner au support!',
+        'reference' => 'Juste au cas où, voici un code que vous pourrez retourner au support !',
     ],
 
     'popup_login' => [
         'login' => [
             'email' => 'adresse e-mail',
-            'forgot' => "J'ai oublié mes détails de connexion",
+            'forgot' => "J'ai oublié mes identifiants",
             'password' => 'mot de passe',
             'title' => 'Se connecter pour continuer',
 
             'error' => [
-                'email' => "Le nom d'utilisateur ou l'email ne correspond pas",
+                'email' => "Le nom d'utilisateur ou l'e-mail ne correspond pas",
                 'password' => 'Mot de passe incorrect',
             ],
         ],
 
         'register' => [
-            'info' => "Vous avez besoin d'un compte, monsieur. Pourquoi vous en avez pas?",
-            'title' => "Vous n'avez pas de compte?",
+            'info' => "Vous avez besoin d'un compte, mon cher. Pourquoi n'en avez vous pas ?",
+            'title' => "Vous n'avez pas de compte ?",
         ],
     ],
 
     'popup_user' => [
         'links' => [
             'account-edit' => 'Paramètres',
-            'profile' => 'Mon profil',
+            'friends' => 'Amis',
             'logout' => 'Se déconnecter',
+            'profile' => 'Mon profil',
         ],
     ],
 
     'popup_search' => [
-        'initial' => 'Écrivez pour chercher!',
+        'initial' => 'Écrivez pour rechercher!',
+        'retry' => 'La recherche a échouée. Cliquez pour réessayer.',
     ],
 ];

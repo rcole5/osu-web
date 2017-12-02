@@ -20,22 +20,27 @@
 
 namespace App\Models;
 
+use App\Exceptions\ChangeUsernameException;
+use App\Exceptions\ModelNotSavedException;
 use App\Interfaces\Messageable;
 use App\Libraries\BBCodeForDB;
 use App\Models\Chat\PrivateMessage;
 use App\Traits\UserAvatar;
+use App\Traits\Validatable;
+use Cache;
 use Carbon\Carbon;
 use DB;
 use Exception;
 use Hash;
 use Illuminate\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
+use Illuminate\Database\QueryException as QueryException;
 use Laravel\Passport\HasApiTokens;
 use Request;
 
 class User extends Model implements AuthenticatableContract, Messageable
 {
-    use HasApiTokens, Authenticatable, UserAvatar;
+    use HasApiTokens, Authenticatable, UserAvatar, Validatable;
 
     protected $table = 'phpbb_users';
     protected $primaryKey = 'user_id';
@@ -59,10 +64,38 @@ class User extends Model implements AuthenticatableContract, Messageable
         'touch' => 8,
     ];
 
-    public $flags;
-    private $groupIds;
-    private $supportLength;
-    private $profileCustomization;
+    const SEARCH_DEFAULTS = [
+        'query' => null,
+        'limit' => 20,
+        'page' => 1,
+    ];
+
+    const CACHING = [
+        'follower_count' => [
+            'key' => 'followerCount',
+            'duration' => 720, // 12 hours
+        ],
+    ];
+
+    const MAX_FIELD_LENGTHS = [
+        'user_msnm' => 255,
+        'user_twitter' => 255,
+        'user_website' => 200,
+        'user_from' => 30,
+        'user_occ' => 30,
+        'user_interests' => 30,
+    ];
+
+    private $memoized = [];
+
+    private $validateCurrentPassword = false;
+    private $validatePasswordConfirmation = false;
+    public $password = null;
+    private $passwordConfirmation = null;
+    private $currentPassword = null;
+
+    private $emailConfirmation = null;
+    private $validateEmailConfirmation = false;
 
     public function getAuthPassword()
     {
@@ -85,12 +118,101 @@ class User extends Model implements AuthenticatableContract, Messageable
         }
     }
 
+    public function revertUsername($type = 'revert')
+    {
+        // TODO: validation errors instead?
+        if ($this->user_id <= 1) {
+            throw new ChangeUsernameException(['user_id is not valid']);
+        }
+
+        if (!presence($this->username_previous)) {
+            throw new ChangeUsernameException(['username_previous is blank.']);
+        }
+
+        $this->updateUsername($this->username_previous, null, $type);
+        \Log::debug("username reverted: {$this->username}");
+    }
+
+    public function changeUsername($newUsername, $type = 'support')
+    {
+        // TODO: validation errors instead?
+        if ($this->user_id <= 1) {
+            throw new ChangeUsernameException(['user_id is not valid']);
+        }
+
+        $errors = static::validateUsername($newUsername, $this->username);
+        if (count($errors) > 0) {
+            throw new ChangeUsernameException($errors);
+        }
+
+        DB::transaction(function () use ($newUsername, $type) {
+            // check for an exsiting inactive username and renames it.
+            static::renameUsernameIfInactive($newUsername);
+
+            $this->updateUsername($newUsername, $this->username, $type);
+            \Log::debug("username changed: {$this->username}");
+        });
+    }
+
+    private function tryUpdateUsername($try, $newUsername, $oldUsername, $type)
+    {
+        $name = $try > 0 ? "{$newUsername}_{$try}" : $newUsername;
+
+        try {
+            return $this->updateUsername($name, $oldUsername, $type);
+        } catch (QueryException $ex) {
+            if (!is_sql_unique_exception($ex) || $try > 9) {
+                throw $ex;
+            }
+
+            return $this->tryUpdateUsername($try + 1, $newUsername, $oldUsername, $type);
+        }
+    }
+
+    private function updateUsername($newUsername, $oldUsername, $type)
+    {
+        $this->username_previous = $oldUsername;
+        $this->username_clean = strtolower($newUsername);
+        $this->username = $newUsername;
+
+        DB::transaction(function () use ($newUsername, $oldUsername, $type) {
+            Forum\Forum::where('forum_last_poster_id', $this->user_id)->update(['forum_last_poster_name' => $newUsername]);
+            // DB::table('phpbb_moderator_cache')->where('user_id', $this->user_id)->update(['username' => $newUsername]);
+            Forum\Post::where('poster_id', $this->user_id)->update(['post_username' => $newUsername]);
+            Forum\Topic::where('topic_poster', $this->user_id)
+                ->update(['topic_first_poster_name' => $newUsername]);
+            Forum\Topic::where('topic_last_poster_id', $this->user_id)
+                ->update(['topic_last_poster_name' => $newUsername]);
+
+            $history = new UsernameChangeHistory();
+            $history->username = $newUsername;
+            $history->username_last = $oldUsername;
+            $history->type = $type;
+
+            if (!$this->usernameChangeHistory()->save($history)) {
+                throw new ModelNotSavedException('failed saving model');
+            }
+
+            $skipValidations = in_array($type, ['inactive', 'revert'], true);
+            $this->saveOrExplode(['skipValidations' => $skipValidations]);
+        });
+    }
+
+    public static function findByUsernameForInactive($username)
+    {
+        return static::whereIn(
+            'username',
+            [str_replace(' ', '_', $username), str_replace('_', ' ', $username)]
+        )->first();
+    }
+
     public static function checkWhenUsernameAvailable($username)
     {
-        $user = self::whereIn('username', [str_replace(' ', '_', $username), str_replace('_', ' ', $username)])->first();
+        $user = static::findByUsernameForInactive($username);
 
         if ($user === null) {
             $lastUsage = UsernameChangeHistory::where('username_last', $username)
+                ->where('type', '<>', 'inactive') // don't include changes caused by inactives; this validation needs to be removed on normal save.
                 ->orderBy('change_id', 'desc')
                 ->first();
 
@@ -115,14 +237,19 @@ class User extends Model implements AuthenticatableContract, Messageable
             ->addDays($playCount * 0.75);  //bonus based on playcount
     }
 
-    public static function validateUsername($username)
+    public static function validateUsername($username, $previousUsername = null)
     {
-        if ($username !== trim($username)) {
+        if (present($previousUsername) && $previousUsername === $username) {
+            // no change
+            return [];
+        }
+
+        if (($username ?? '') !== trim($username)) {
             return ["Username can't start or end with spaces!"];
         }
 
         if (strlen($username) < 3) {
-            return ['The requested username is too short.'];
+            return [trans('model_validation.user.username_too_short')];
         }
 
         if (strlen($username) > 15) {
@@ -161,6 +288,45 @@ class User extends Model implements AuthenticatableContract, Messageable
         return [];
     }
 
+    public static function search($rawParams)
+    {
+        $max = config('osu.search.max.user');
+
+        $params = [];
+        $params['query'] = presence($rawParams['query'] ?? null);
+        $params['limit'] = clamp(get_int($rawParams['limit'] ?? null) ?? static::SEARCH_DEFAULTS['limit'], 1, 50);
+        $params['page'] = max(1, get_int($rawParams['page'] ?? 1));
+
+        $query = static::where('username', 'LIKE', mysql_escape_like($params['query']).'%')
+            ->where('username', 'NOT LIKE', '%\_old')
+            ->default();
+
+        $overLimit = (clone $query)->limit(1)->offset($max)->exists();
+        $total = $overLimit ? $max : $query->count();
+        $end = $params['page'] * $params['limit'];
+        // Actual limit for query.
+        // Don't change the params because it's used for pagination.
+        $limit = $params['limit'];
+        if ($end > $max) {
+            // Ensure $max is honored.
+            $limit -= ($end - $max);
+            // Avoid negative limit.
+            $limit = max(0, $limit);
+        }
+        $offset = $end - $limit;
+
+        return [
+            'total' => $total,
+            'over_limit' => $overLimit,
+            'data' => $query
+                ->orderBy('user_id')
+                ->limit($limit)
+                ->offset($offset)
+                ->get(),
+            'params' => $params,
+        ];
+    }
+
     public function validateUsernameChangeTo($username)
     {
         if (!$this->hasSupported()) {
@@ -196,12 +362,11 @@ class User extends Model implements AuthenticatableContract, Messageable
                 break;
 
             default:
-                if (is_numeric($username_or_id)) {
-                    $user = self::where('user_id', $username_or_id);
-                } else {
-                    $user = self::where('username', $username_or_id)->orWhere('username_clean', '=', $username_or_id);
+                if (ctype_digit((string) $username_or_id)) {
+                    $user = static::lookup($username_or_id, 'id', $find_all);
                 }
-                break;
+
+                return $user ?? static::lookup($username_or_id, 'string', $find_all);
         }
 
         if (!$find_all) {
@@ -253,6 +418,16 @@ class User extends Model implements AuthenticatableContract, Messageable
         $this->attributes['user_sig_bbcode_uid'] = $bbcode->uid;
     }
 
+    public function setUserWebsiteAttribute($value)
+    {
+        $value = trim($value);
+        if ($value !== '' && !starts_with($value, ['http://', 'https://'])) {
+            $value = "https://{$value}";
+        }
+
+        $this->attributes['user_website'] = $value;
+    }
+
     public function setOsuPlaystyleAttribute($value)
     {
         $styles = 0;
@@ -293,12 +468,22 @@ class User extends Model implements AuthenticatableContract, Messageable
         return $this->user_birthday->age ?? null;
     }
 
+    public function cover()
+    {
+        return $this->userProfileCustomization ? $this->userProfileCustomization->cover()->url() : null;
+    }
+
     public function getUserTwitterAttribute($value)
     {
         return presence(ltrim($value, '@'));
     }
 
     public function getUserLastfmAttribute($value)
+    {
+        return presence($value);
+    }
+
+    public function getUserWebsiteAttribute($value)
     {
         return presence($value);
     }
@@ -325,6 +510,32 @@ class User extends Model implements AuthenticatableContract, Messageable
         }
 
         return $styles;
+    }
+
+    public function getUserColourAttribute($value)
+    {
+        if (present($value)) {
+            return "#{$value}";
+        }
+    }
+
+    public function setUserColourAttribute($value)
+    {
+        // also functions for casting null to string
+        $this->attributes['user_colour'] = ltrim($value, '#');
+    }
+
+    public function getOsuSubscriptionexpiryAttribute($value)
+    {
+        if (present($value)) {
+            return Carbon::parse($value);
+        }
+    }
+
+    public function setOsuSubscriptionexpiryAttribute($value)
+    {
+        // strip time component
+        $this->attributes['osu_subscriptionexpiry'] = $value->startOfDay();
     }
 
     // return a user's API details
@@ -415,6 +626,11 @@ class User extends Model implements AuthenticatableContract, Messageable
         return $this->user_lastvisit > Carbon::now()->subMonth();
     }
 
+    public function isOnline()
+    {
+        return $this->user_lastvisit > Carbon::now()->subMinutes(config('osu.user.online_window'));
+    }
+
     public function isPrivileged()
     {
         return $this->isAdmin()
@@ -437,24 +653,32 @@ class User extends Model implements AuthenticatableContract, Messageable
 
     public function isSilenced()
     {
-        if ($this->isRestricted()) {
-            return true;
+        if (!array_key_exists(__FUNCTION__, $this->memoized)) {
+            if ($this->isRestricted()) {
+                return true;
+            }
+
+            $lastBan = $this->banHistories()->bans()->first();
+
+            $this->memoized[__FUNCTION__] = $lastBan !== null &&
+                $lastBan->period !== 0 &&
+                $lastBan->endTime()->isFuture();
         }
 
-        $lastBan = $this->banHistories()->bans()->first();
-
-        return $lastBan !== null &&
-            $lastBan->period !== 0 &&
-            $lastBan->endTime()->isFuture();
+        return $this->memoized[__FUNCTION__];
     }
 
     public function groupIds()
     {
-        if ($this->groupIds === null) {
-            $this->groupIds = model_pluck($this->userGroups(), 'group_id');
+        if (!array_key_exists(__FUNCTION__, $this->memoized)) {
+            if (isset($this->relations['userGroups'])) {
+                $this->memoized[__FUNCTION__] = $this->userGroups->pluck('group_id');
+            } else {
+                $this->memoized[__FUNCTION__] = model_pluck($this->userGroups(), 'group_id');
+            }
         }
 
-        return $this->groupIds;
+        return $this->memoized[__FUNCTION__];
     }
 
     // check if a user is in a specific group, by ID
@@ -490,6 +714,11 @@ class User extends Model implements AuthenticatableContract, Messageable
         return $this->hasMany(Beatmapset::class, 'user_id');
     }
 
+    public function beatmapsetWatches()
+    {
+        return $this->hasMany(BeatmapsetWatch::class, 'user_id');
+    }
+
     public function beatmaps()
     {
         return $this->hasManyThrough(Beatmap::class, Beatmapset::class, 'user_id');
@@ -523,6 +752,11 @@ class User extends Model implements AuthenticatableContract, Messageable
     public function apiKey()
     {
         return $this->hasOne(ApiKey::class, 'user_id');
+    }
+
+    public function profileBanners()
+    {
+        return $this->hasMany(ProfileBanner::class, 'user_id');
     }
 
     public function storeAddresses()
@@ -611,7 +845,7 @@ class User extends Model implements AuthenticatableContract, Messageable
         $mode = studly_case($mode);
 
         if ($returnQuery === true) {
-            return $this->hasMany("App\Models\Score\\{$mode}", 'user_id');
+            return $this->hasMany("App\Models\Score\\{$mode}", 'user_id')->default();
         } else {
             $relation = "scores{$mode}";
 
@@ -727,7 +961,37 @@ class User extends Model implements AuthenticatableContract, Messageable
 
     public function friends()
     {
-        return $this->relations()->where('friend', true);
+        // 'cuz hasManyThrough is derp
+
+        return self::whereIn('user_id', $this->relations()->friends()->pluck('zebra_id'));
+    }
+
+    public function maxFriends()
+    {
+        return $this->osu_subscriber ? config('osu.user.max_friends_supporter') : config('osu.user.max_friends');
+    }
+
+    public function uncachedFollowerCount()
+    {
+        return UserRelation::where('zebra_id', $this->user_id)->where('friend', 1)->count();
+    }
+
+    public function cacheFollowerCount()
+    {
+        $count = $this->uncachedFollowerCount();
+
+        Cache::put(
+            self::CACHING['follower_count']['key'].':'.$this->user_id,
+            $count,
+            self::CACHING['follower_count']['duration']
+        );
+
+        return $count;
+    }
+
+    public function followerCount()
+    {
+        return get_int(Cache::get(self::CACHING['follower_count']['key'].':'.$this->user_id)) ?? $this->cacheFollowerCount();
     }
 
     public function foes()
@@ -770,14 +1034,14 @@ class User extends Model implements AuthenticatableContract, Messageable
         return $this->hasMany(Forum\Post::class, 'poster_id');
     }
 
-    public function getPlaymodeAttribute($value)
-    {
-        return Beatmap::modeStr($this->osu_playmode);
-    }
-
     public function changelogs()
     {
         return $this->hasMany(Changelog::class, 'user_id');
+    }
+
+    public function getPlaymodeAttribute($value)
+    {
+        return Beatmap::modeStr($this->osu_playmode);
     }
 
     public function setPlaymodeAttribute($value)
@@ -792,20 +1056,24 @@ class User extends Model implements AuthenticatableContract, Messageable
 
     public function flags()
     {
-        if ($this->flags === null) {
-            $this->flags = [];
+        if (!array_key_exists(__FUNCTION__, $this->memoized)) {
+            $flags = [];
 
             if ($this->country_acronym !== null) {
-                $this->flags['country'] = [$this->country_acronym, $this->country->name];
+                $flags['country'] = [$this->country_acronym, $this->country->name];
             }
+
+            $this->memoized[__FUNCTION__] = $flags;
         }
 
-        return $this->flags;
+        return $this->memoized[__FUNCTION__];
     }
 
     public function title()
     {
-        return $this->rank->rank_title ?? null;
+        if ($this->user_rank !== 0 && $this->user_rank !== null) {
+            return $this->rank->rank_title ?? null;
+        }
     }
 
     public function hasProfile()
@@ -854,24 +1122,26 @@ class User extends Model implements AuthenticatableContract, Messageable
 
     public function defaultJson()
     {
-        return json_item($this, 'User', 'disqus_auth');
+        return json_item($this, 'User', ['disqus_auth', 'friends']);
     }
 
     public function supportLength()
     {
-        if ($this->supportLength === null) {
-            $this->supportLength = 0;
+        if (!array_key_exists(__FUNCTION__, $this->memoized)) {
+            $supportLength = 0;
 
             foreach ($this->supports as $support) {
                 if ($support->cancel === true) {
-                    $this->supportLength -= $support->length;
+                    $supportLength -= $support->length;
                 } else {
-                    $this->supportLength += $support->length;
+                    $supportLength += $support->length;
                 }
             }
+
+            $this->memoized[__FUNCTION__] = $supportLength;
         }
 
-        return $this->supportLength;
+        return $this->memoized[__FUNCTION__];
     }
 
     public function supportLevel()
@@ -917,12 +1187,13 @@ class User extends Model implements AuthenticatableContract, Messageable
         ]);
     }
 
-    public function receiveMessage(User $sender, $body)
+    public function receiveMessage(self $sender, $body, $isAction = false)
     {
         $message = new PrivateMessage();
         $message->user_id = $sender->user_id;
         $message->target_id = $this->user_id;
         $message->content = $body;
+        $message->is_action = $isAction;
         $message->save();
 
         return $message->fresh();
@@ -936,9 +1207,56 @@ class User extends Model implements AuthenticatableContract, Messageable
         ]);
     }
 
-    public function updatePassword($password)
+    public function scopeOnline($query)
     {
-        return $this->update(['user_password' => Hash::make($password)]);
+        return $query->whereRaw('user_lastvisit > UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL '.config('osu.user.online_window').' MINUTE))');
+    }
+
+    public function checkPassword($password)
+    {
+        return Hash::check($password, $this->getAuthPassword());
+    }
+
+    public function validatePasswordConfirmation()
+    {
+        $this->validatePasswordConfirmation = true;
+
+        return $this;
+    }
+
+    public function setPasswordConfirmationAttribute($value)
+    {
+        $this->passwordConfirmation = $value;
+    }
+
+    public function setPasswordAttribute($value)
+    {
+        // actual user_password assignment is after validation
+        $this->password = $value;
+    }
+
+    public function validateCurrentPassword()
+    {
+        $this->validateCurrentPassword = true;
+
+        return $this;
+    }
+
+    public function setCurrentPasswordAttribute($value)
+    {
+        $this->currentPassword = $value;
+    }
+
+    public function validateEmailConfirmation()
+    {
+        $this->validateEmailConfirmation = true;
+
+        return $this;
+    }
+
+    public function setUserEmailConfirmationAttribute($value)
+    {
+        $this->emailConfirmation = $value;
     }
 
     public static function attemptLogin($user, $password, $ip = null)
@@ -951,7 +1269,7 @@ class User extends Model implements AuthenticatableContract, Messageable
 
         $validAuth = $user === null
             ? false
-            : Hash::check($password, $user->user_password);
+            : $user->checkPassword($password);
 
         if (!$validAuth) {
             LoginAttempt::failedAttempt($ip, $user);
@@ -979,9 +1297,9 @@ class User extends Model implements AuthenticatableContract, Messageable
 
     public function profileCustomization()
     {
-        if ($this->profileCustomization === null) {
+        if (!array_key_exists(__FUNCTION__, $this->memoized)) {
             try {
-                $this->profileCustomization = $this
+                $this->memoized[__FUNCTION__] = $this
                     ->userProfileCustomization()
                     ->firstOrCreate([]);
             } catch (Exception $ex) {
@@ -994,6 +1312,149 @@ class User extends Model implements AuthenticatableContract, Messageable
             }
         }
 
-        return $this->profileCustomization;
+        return $this->memoized[__FUNCTION__];
+    }
+
+    public function profileBeatmapsetsRankedAndApproved()
+    {
+        return $this->beatmapsets()
+            ->rankedOrApproved()
+            ->active()
+            ->with('beatmaps');
+    }
+
+    public function profileBeatmapsetsFavourite()
+    {
+        return $this->favouriteBeatmapsets()
+            ->with('beatmaps');
+    }
+
+    public function profileBeatmapsetsUnranked()
+    {
+        return $this->beatmapsets()
+            ->unranked()
+            ->with('beatmaps');
+    }
+
+    public function profileBeatmapsetsGraveyard()
+    {
+        return $this->beatmapsets()
+            ->graveyard()
+            ->with('beatmaps');
+    }
+
+    public function isValid()
+    {
+        $this->validationErrors()->reset();
+
+        if ($this->isDirty('username')) {
+            $errors = static::validateUsername($this->username, $this->getOriginal('username'));
+
+            if (count($errors) > 0) {
+                foreach ($errors as $error) {
+                    $this->validationErrors()->addTranslated('username', $error);
+                }
+            }
+        }
+
+        if ($this->validateCurrentPassword) {
+            if (!$this->checkPassword($this->currentPassword)) {
+                $this->validationErrors()->add('current_password', '.wrong_current_password');
+            }
+        }
+
+        if ($this->validatePasswordConfirmation) {
+            if ($this->password !== $this->passwordConfirmation) {
+                $this->validationErrors()->add('password_confirmation', '.wrong_password_confirmation');
+            }
+        }
+
+        if (present($this->password)) {
+            if (present($this->username)) {
+                if (strpos(strtolower($this->password), strtolower($this->username)) !== false) {
+                    $this->validationErrors()->add('password', '.contains_username');
+                }
+            }
+
+            if (strlen($this->password) < 8) {
+                $this->validationErrors()->add('password', '.too_short');
+            }
+
+            if (WeakPassword::check($this->password)) {
+                $this->validationErrors()->add('password', '.weak');
+            }
+
+            if ($this->validationErrors()->isEmpty()) {
+                $this->user_password = Hash::make($this->password);
+            }
+        }
+
+        if ($this->validateEmailConfirmation) {
+            if ($this->user_email !== $this->emailConfirmation) {
+                $this->validationErrors()->add('user_email_confirmation', '.wrong_email_confirmation');
+            }
+        }
+
+        if (present($this->user_email)) {
+            if (strpos($this->user_email, '@') === false) {
+                $this->validationErrors()->add('user_email', '.invalid_email');
+            }
+
+            if (static::where('user_id', '<>', $this->getKey())->where('user_email', '=', $this->user_email)->exists()) {
+                $this->validationErrors()->add('user_email', '.email_already_used');
+            }
+        }
+
+        if ($this->isDirty('country_acronym') && present($this->country_acronym)) {
+            if (($country = Country::find($this->country_acronym)) !== null) {
+                // ensure matching case
+                $this->country_acronym = $country->getKey();
+            } else {
+                $this->validationErrors()->add('country', '.invalid_country');
+            }
+        }
+
+        foreach (self::MAX_FIELD_LENGTHS as $field => $limit) {
+            if ($this->isDirty($field)) {
+                $val = $this->$field;
+                if ($val && mb_strlen($val) > $limit) {
+                    $this->validationErrors()->add($field, '.too_long', ['limit' => $limit]);
+                }
+            }
+        }
+
+        return $this->validationErrors()->isEmpty();
+    }
+
+    public function validationErrorsTranslationPrefix()
+    {
+        return 'user';
+    }
+
+    public function save(array $options = [])
+    {
+        if ($options['skipValidations'] ?? false) {
+            return parent::save($options);
+        }
+
+        return $this->isValid() && parent::save($options);
+    }
+
+    /**
+     * Check for an exsiting inactive username and renames it if
+     * considered inactive.
+     *
+     * @return User if renamed; nil otherwise.
+     */
+    private static function renameUsernameIfInactive($username)
+    {
+        $existing = static::findByUsernameForInactive($username);
+        $available = static::checkWhenUsernameAvailable($username) <= Carbon::now();
+        if ($existing !== null && $available) {
+            $newUsername = "{$existing->username}_old";
+            $existing->tryUpdateUsername(0, $newUsername, $existing->username, 'inactive');
+
+            return $existing;
+        }
     }
 }

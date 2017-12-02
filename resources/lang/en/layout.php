@@ -27,14 +27,19 @@ return [
         'home' => [
             '_' => 'home',
             'account-edit' => 'settings',
-            'getChangelog' => 'changelog',
+            'friends' => 'friends',
+            'friends-index' => 'friends',
+            'changelog-index' => 'changelog',
+            'changelog-show' => 'build',
             'getDownload' => 'download',
             'getIcons' => 'icons',
+            'groups-show' => 'groups',
             'index' => 'osu!',
             'legal-show' => 'information',
             'news-index' => 'news',
             'news-show' => 'news',
             'password-reset-index' => 'reset password',
+            'search' => 'search',
             'supportTheGame' => 'support the game',
         ],
         'help' => [
@@ -49,7 +54,8 @@ return [
             'show' => 'info',
             'index' => 'listing',
             'artists' => 'featured artists',
-            // 'getPacks' => 'packs',
+            'packs' => 'packs',
+            'beatmapset-watches-index' => 'modding watchlist',
             // 'getCharts' => 'charts',
         ],
         'beatmapsets' => [
@@ -112,12 +118,13 @@ return [
         ],
         'store' => [
             '_' => 'store',
+            'checkout-index' => 'checkout',
             'getListing' => 'listing',
             'getCart' => 'cart',
 
             'getCheckout' => 'checkout',
             'getInvoice' => 'invoice',
-            'getProduct' => 'product',
+            'products-show' => 'product',
 
             'new' => 'new',
             'home' => 'home',
@@ -149,7 +156,7 @@ return [
         'general' => [
             '_' => 'General',
             'home' => 'Home',
-            'changelog' => 'Changelog',
+            'changelog-index' => 'Changelog',
             'beatmaps' => 'Beatmap Listings',
             'download' => 'Download osu!',
             'wiki' => 'Wiki',
@@ -168,10 +175,10 @@ return [
         ],
         'legal' => [
             '_' => 'Legal & Status',
-            'tos' => 'Terms of Service',
             'copyright' => 'Copyright (DMCA)',
-            'serverStatus' => 'Server Status',
-            'osuStatus' => '@osustatus',
+            'osu_status' => '@osustatus',
+            'server_status' => 'Server Status',
+            'terms' => 'Terms of Service',
         ],
     ],
 
@@ -240,6 +247,7 @@ return [
     'popup_user' => [
         'links' => [
             'account-edit' => 'Settings',
+            'friends' => 'Friends',
             'logout' => 'Log Out',
             'profile' => 'My Profile',
         ],
@@ -247,5 +255,6 @@ return [
 
     'popup_search' => [
         'initial' => 'Type to search!',
+        'retry' => 'Search failed. Click to retry.',
     ],
 ];

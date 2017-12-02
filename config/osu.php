@@ -25,6 +25,9 @@ return [
         'key' => env('CAMO_KEY'),
         'prefix' => env('CAMO_PREFIX', 'https://i.ppy.sh/'),
     ],
+    'client' => [
+        'user_agent' => env('CLIENT_USER_AGENT', 'osu!'),
+    ],
     'elasticsearch' => [
         'index' => env('ES_INDEX', 'osu'),
     ],
@@ -45,6 +48,7 @@ return [
             'topic_ids' => array_map('intval', explode(' ', env('SLACK_WATCH_TOPIC_IDS', '259747'))),
         ],
     ],
+    'git-sha' => env('GIT_SHA', 'unknown-version'),
     'mp-history' => [
         'event-count' => 500,
     ],
@@ -53,6 +57,16 @@ return [
     ],
     'legacy' => [
         'shared_interop_secret' => env('SHARED_INTEROP_SECRET', ''),
+    ],
+    'search' => [
+        'minimum_length' => get_int(env('SEARCH_MINIMUM_LENGTH', 2)),
+
+        'max' => [
+            'user' => 100,
+        ],
+    ],
+    'support' => [
+        'video_url' => env('SUPPORT_OSU_VIDEO_URL', 'https://assets.ppy.sh/media/osu-direct-demo.mp4'),
     ],
     'store' => [
         'delayed_shipping_order_threshold' => env('DELAYED_SHIPPING_ORDER_THRESHOLD', 100),
@@ -80,6 +94,7 @@ return [
             'recover' => '/p/forgot-email',
             'rules' => '/wiki/Osu!:Rules',
             'signup' => '/p/register',
+            'inbox' => '/forum/ucp.php?i=pm&folder=inbox',
         ],
         'rankings' => [
             'charts' => '/p/chart',
@@ -97,16 +112,21 @@ return [
         'user_page_forum_id' => intval(env('USER_PAGE_FORUM_ID', 70)),
         'verification_key_length_hex' => 8,
         'verification_key_tries_limit' => 8,
-
+        'max_friends' => 250,
+        'max_friends_supporter' => 500,
+        'online_window' => intval(env('USER_ONLINE_WINDOW', 10)),
         'password_reset' => [
             'expires_hour' => 2,
             'key_length' => 8,
             'tries' => 8,
         ],
+        'super_friendly' => array_map('intval', explode(' ', env('SUPER_FRIENDLY', '3'))),
     ],
     'changelog' => [
         'update_streams' => array_map('intval', explode(' ', env('UPDATE_STREAMS', '5 1'))),
         'featured_stream' => intval(env('FEATURED_UPDATE_STREAM', 5)),
         'recent_weeks' => intval(env('CHANGELOG_RECENT_WEEKS', 6)),
+        'chart_days' => intval(env('CHANGELOG_CHART_DAYS', 7)),
+        'build_history_interval' => intval(env('CHANGELOG_BUILD_HISTORY_INTERVAL', 30)),
     ],
 ];

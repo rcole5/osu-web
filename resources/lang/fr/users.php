@@ -27,6 +27,7 @@ return [
         'username' => "Nom d'utilisateur",
         'password' => 'Mot de passe',
         'button' => 'Se connecter',
+        'button_posting' => 'Connexion...',
         'remember' => 'Se souvenir de moi sur cet ordinateur',
         'title' => 'Merci de vous connecter pour continuer',
         'failed' => 'Identifiants incorrects',
@@ -48,6 +49,10 @@ return [
         'error' => 'Vous devez être connecté pour faire ça.',
     ],
     'logout_confirm' => 'Êtes-vous sûr de vouloir vous déconnecter? :(',
+    'restricted_banner' => [
+        'title' => 'Votre compte a été restreint !',
+        'message' => "Quand vous êtes restreint, vous ne pouvez pas interagir avec les autres joueur et vos scores ne seront visibles qu'à vous. Cette restriction est souvent le résultat d'un processus automatique et sera levée en général dans les 24 heures. Si vous souhaitez faire appel de votre restriction, merci de <a href=\"mailto:accounts@ppy.sh\">contacter le support</a>.",
+    ],
     'show' => [
         '404' => 'Utilisateur non trouvé! ;_;',
         'age' => 'Âgé de :age',
@@ -57,24 +62,24 @@ return [
         'is_supporter' => 'osu!supporter',
         'joined_at' => 'Ici depuis :date',
         'lastvisit' => 'Vu la dernière fois :date',
-        'missingtext' => "Vous avez fait une erreur de typo, je crois! (ou l'utilisateur est banni)",
+        'missingtext' => "Vous avez fait une faute de frappe, je crois ! (ou l'utilisateur est banni)",
         'origin_age' => ':age',
         'origin_country' => 'Depuis :country',
         'origin_country_age' => ':age ans et de :country',
         'page_description' => 'osu! - Tout ce que vous devez savoir à propos de :username!',
         'plays_with' => 'Joue avec :devices',
-        'title' => 'profil de :username',
+        'title' => 'Profil de :username',
 
         'edit' => [
             'cover' => [
                 'button' => 'Changer la bannière du profil',
                 'defaults_info' => "Plus d'options seront disponibles bientôt",
                 'upload' => [
-                    'broken_file' => "Impossible de traiter l'image. Vérifiez l'image mise en ligne et réesayez.",
+                    'broken_file' => "Impossible de traiter l'image. Vérifiez l'image mise en ligne et réessayez.",
                     'button' => "Mettre en ligne l'image",
                     'dropzone' => 'Déplacez ici pour uploader',
                     'dropzone_info' => "Vous pouvez aussi déplacer l'image ici pour la mettre en ligne",
-                    'restriction_info' => "Mise en ligne disponible pour les <a href='".osu_url('support-the-game')."' target='_blank'>osu!supporters</a> uniquement",
+                    'restriction_info' => "Mise en ligne disponible pour les <a href='".route('store.products.show', 'supporter-tag')."' target='_blank'>osu!supporters</a> uniquement",
                     'size_info' => 'La taille de la bannière devrait être 2000x700',
                     'too_large' => 'Le fichier mis en ligne est trop gros.',
                     'unsupported_format' => 'Format non supporté.',
@@ -82,12 +87,23 @@ return [
             ],
         ],
         'extra' => [
+            'followers' => '1 abonné|:count abonnés',
+            'unranked' => 'Aucune partie récente',
+
             'achievements' => [
                 'title' => 'Succès',
                 'achieved-on' => 'Acquis le :date',
             ],
             'beatmaps' => [
+                'none' => 'Aucune... Pour le moment.',
                 'title' => 'Beatmaps',
+
+                'favourite' => [
+                    'title' => 'Beatmaps favorites (:count)',
+                ],
+                'ranked_and_approved' => [
+                    'title' => 'Beatmaps classées et approuvées (:count)',
+                ],
             ],
             'historical' => [
                 'empty' => 'Aucun enregistrement de performance. :(',
@@ -102,7 +118,7 @@ return [
                 'title' => 'Historique',
             ],
             'kudosu' => [
-                'available' => 'Kudosu disponibles',
+                'available' => 'Kudosu disponible',
                 'available_info' => "Les Kudosu peuvent être échangés pour des étoiles kudosu, qui aideront à ce que votre beatmap ait plus d'attention. C'est le nombre de kudosu non échangés.",
                 'recent_entries' => 'Hitorique de Kudosu récents',
                 'title' => 'Kudosu!',
@@ -111,7 +127,7 @@ return [
 
                 'entry' => [
                     'amount' => ':amount kudosu',
-                    'empty' => "Cet utilisateur n'a jamais reçu de Kudosu!",
+                    'empty' => "Cet utilisateur n'a jamais reçu de Kudosu !",
 
                     'beatmap_discussion' => [
                         'allow_kudosu' => [
@@ -165,22 +181,12 @@ return [
                 'title' => 'Classements',
                 'weighted_pp' => 'pondéré: :pp (:percentage)',
             ],
-            'beatmaps' => [
-                'title' => 'Beatmaps',
-                'favourite' => [
-                    'title' => 'Beatmaps favorites (:count)',
-                ],
-                'ranked_and_approved' => [
-                    'title' => 'Beatmaps classées et approuvées (:count)',
-                ],
-                'none' => 'Aucune... Pour le moment.',
-            ],
         ],
         'page' => [
             'description' => '<strong>Moi!</strong> est une zone personnalisable du profil.',
-            'edit_big' => 'Éditer le moi!',
+            'edit_big' => 'Éditez-moi !',
             'placeholder' => 'Tapez le contenu de la page',
-            'restriction_info' => "Vous devez être <a href='".osu_url('support-the-game')."' target='_blank'>osu!supporter</a> pour débloquer cette fonctionnalité.",
+            'restriction_info' => "Vous devez être <a href='".route('store.products.show', 'supporter-tag')."' target='_blank'>osu!supporter</a> pour débloquer cette fonctionnalité.",
         ],
         'rank' => [
             'country' => 'Classement national en :mode',
@@ -197,6 +203,10 @@ return [
             'total_hits' => 'Nombre de clics',
             'total_score' => 'Score total',
         ],
+    ],
+    'status' => [
+        'online' => 'En ligne',
+        'offline' => 'Hors-ligne',
     ],
     'verify' => [
         'title' => 'Vérification de compte',

@@ -26,7 +26,8 @@ return [
         'locked_ip' => 'your IP address is locked. Please wait a few minutes.',
         'username' => 'Username',
         'password' => 'Password',
-        'button' => 'Login',
+        'button' => 'Sign in',
+        'button_posting' => 'Signing in...',
         'remember' => 'Remember this computer',
         'title' => 'Please login to proceed',
         'failed' => 'Incorrect login',
@@ -44,10 +45,15 @@ return [
     ],
     'anonymous' => [
         'login_link' => 'click to login',
+        'login_text' => 'login',
         'username' => 'Guest',
         'error' => 'You need to be logged in to do this.',
     ],
     'logout_confirm' => 'Are you sure you want to log out? :(',
+    'restricted_banner' => [
+        'title' => 'Your account has been restricted!',
+        'message' => 'While restricted, you will be unable to interact with other players and your scores will only be visible to you. This is usually the result of an automated process and will usually be lifted within 24 hours. If you wish to appeal your restriction, please <a href="mailto:accounts@ppy.sh">contact support</a>.',
+    ],
     'show' => [
         '404' => 'User not found! ;_;',
         'age' => ':age years old',
@@ -74,7 +80,7 @@ return [
                     'button' => 'Upload image',
                     'dropzone' => 'Drop here to upload',
                     'dropzone_info' => 'You can also drop your image here to upload',
-                    'restriction_info' => "Upload available for <a href='".osu_url('support-the-game')."' target='_blank'>osu!supporters</a> only",
+                    'restriction_info' => "Upload available for <a href='".route('store.products.show', 'supporter-tag')."' target='_blank'>osu!supporters</a> only",
                     'size_info' => 'Cover size should be 2000x700',
                     'too_large' => 'Uploaded file is too large.',
                     'unsupported_format' => 'Unsupported format.',
@@ -82,12 +88,29 @@ return [
             ],
         ],
         'extra' => [
+            'followers' => '1 follower|:count followers',
+            'unranked' => 'No recent plays',
+
             'achievements' => [
                 'title' => 'Achievements',
                 'achieved-on' => 'Achieved on :date',
             ],
             'beatmaps' => [
+                'none' => 'None... yet.',
                 'title' => 'Beatmaps',
+
+                'favourite' => [
+                    'title' => 'Favourite Beatmaps (:count)',
+                ],
+                'graveyard' => [
+                    'title' => 'Graveyarded Beatmaps (:count)',
+                ],
+                'ranked_and_approved' => [
+                    'title' => 'Ranked & Approved Beatmaps (:count)',
+                ],
+                'unranked' => [
+                    'title' => 'Pending Beatmaps (:count)',
+                ],
             ],
             'historical' => [
                 'empty' => 'No performance records. :(',
@@ -97,7 +120,7 @@ return [
                 ],
                 'recent_plays' => [
                     'accuracy' => 'accuracy: :percentage',
-                    'title' => 'Recent Plays',
+                    'title' => 'Recent Plays (24h)',
                 ],
                 'title' => 'Historical',
             ],
@@ -134,6 +157,11 @@ return [
                             'give' => 'Received :amount from obtaining votes in modding post of :post',
                             'reset' => 'Lost :amount from losing votes in modding post of :post',
                         ],
+
+                        'recalculate' => [
+                            'give' => 'Received :amount from votes recalculation in modding post of :post',
+                            'reset' => 'Lost :amount from votes recalculation in modding post of :post',
+                        ],
                     ],
 
                     'forum_post' => [
@@ -165,22 +193,12 @@ return [
                 'title' => 'Ranks',
                 'weighted_pp' => 'weighted: :pp (:percentage)',
             ],
-            'beatmaps' => [
-                'title' => 'Beatmaps',
-                'favourite' => [
-                    'title' => 'Favourite Beatmaps (:count)',
-                ],
-                'ranked_and_approved' => [
-                    'title' => 'Ranked & Approved Beatmaps (:count)',
-                ],
-                'none' => 'None... yet.',
-            ],
         ],
         'page' => [
             'description' => '<strong>me!</strong> is a personal customisable area in your profile page.',
             'edit_big' => 'Edit me!',
             'placeholder' => 'Type page content here',
-            'restriction_info' => "You need to be an <a href='".osu_url('support-the-game')."' target='_blank'>osu!supporter</a> to unlock this feature.",
+            'restriction_info' => "You need to be an <a href='".route('store.products.show', 'supporter-tag')."' target='_blank'>osu!supporter</a> to unlock this feature.",
         ],
         'rank' => [
             'country' => 'Country rank for :mode',
@@ -197,6 +215,13 @@ return [
             'total_hits' => 'Total Hits',
             'total_score' => 'Total Score',
         ],
+    ],
+    'status' => [
+        'online' => 'Online',
+        'offline' => 'Offline',
+    ],
+    'store' => [
+        'saved' => 'User created',
     ],
     'verify' => [
         'title' => 'Account Verification',

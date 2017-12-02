@@ -38,10 +38,6 @@
       element.click()
 
 
-  generateId: ->
-    Math.floor(Math.random() * 100000)
-
-
   setHash: (newHash) ->
     newUrl = location.href.replace /#.*/, ''
     newUrl += newHash
@@ -59,13 +55,14 @@
     osu.popup osu.xhrErrorMessage(xhr), 'danger'
 
 
-  emitAjaxError: (element) =>
+  emitAjaxError: (element = document.body) =>
     (xhr, status, error) =>
       $(element).trigger 'ajax:error', [xhr, status, error]
 
 
-  fileuploadFailCallback: ($el) =>
+  fileuploadFailCallback: ($elFunction) =>
     (_e, data) =>
+      $el = $elFunction()
       $el[0].dataset.isFileupload ?= '1'
 
       $el
@@ -100,6 +97,17 @@
   isMobile: -> ! window.matchMedia('(min-width: 840px)').matches
 
 
+  # mobile safari zooms in on focus of input boxes with font-size < 16px, this works around that
+  focus: (el) =>
+    el = $(el)[0] # so we can handle both jquery'd and normal dom nodes
+    return el.focus() if !osu.isIos
+
+    prevSize = el.style.fontSize
+    el.style.fontSize = '16px'
+    el.focus()
+    el.style.fontSize = prevSize
+
+
   src2x: (mainUrl) ->
     src: mainUrl
     srcSet: "#{mainUrl} 1x, #{mainUrl.replace(/(\.[^.]+)$/, '@2x$1')} 2x"
@@ -111,6 +119,9 @@
     el.setAttribute 'data-remote', true if options.isRemote
     el.className = options.classNames.join(' ') if options.classNames
     el.textContent = text
+    if options.props
+      _.each options.props, (val, prop) ->
+        el.setAttribute prop, val
     el.outerHTML
 
 
@@ -216,21 +227,32 @@
 
 
   trans: (key, replacements) ->
-    message = Lang.get key, replacements, currentLocale
+    Lang.get key, replacements
 
-    if message == key
-      message = Lang.get key, replacements, fallbackLocale
 
-    message
+  transArray: (array, key = 'common.array_and') ->
+    switch array.length
+      when 0
+        ''
+      when 1
+        "#{array[0]}"
+      when 2
+        array.join(osu.trans("#{key}.two_words_connector"))
+      else
+        "#{array[...-1].join(osu.trans("#{key}.words_connector"))}#{osu.trans("#{key}.last_word_connector")}#{_.last(array)}"
 
 
   transChoice: (key, count, replacements) ->
     message = Lang.choice key, count, replacements, currentLocale
 
-    if message == key
-      message = Lang.choice key, count, replacements, fallbackLocale
+  uuid: ->
+    Turbolinks.uuid() # no point rolling our own
 
-    message
+  updateQueryString: (key, value, url = window.location.href) ->
+    urlObj = new URL(url, document.location.origin)
+    urlObj.searchParams.set(key, value)
+
+    return urlObj.href
 
 
   xhrErrorMessage: (xhr) ->

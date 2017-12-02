@@ -23,6 +23,7 @@ namespace App\Transformers;
 use App\Models\Beatmap;
 use App\Models\Beatmapset;
 use App\Models\BeatmapsetEvent;
+use App\Models\BeatmapsetWatch;
 use App\Models\DeletedUser;
 use Auth;
 use League\Fractal;
@@ -34,7 +35,7 @@ class BeatmapsetTransformer extends Fractal\TransformerAbstract
         'beatmaps',
         'converts',
         'description',
-        'discussion_status',
+        'recentFavourites',
         'nominations',
         'ratings',
         'user',
@@ -61,12 +62,15 @@ class BeatmapsetTransformer extends Fractal\TransformerAbstract
             'bpm' => $beatmapset->bpm,
             'source' => $beatmapset->source,
             'covers' => $beatmapset->allCoverURLs(),
-            'previewUrl' => $beatmapset->previewURL(),
+            'preview_url' => $beatmapset->previewURL(),
             'tags' => $beatmapset->tags,
             'video' => $beatmapset->video,
+            'storyboard' => $beatmapset->storyboard,
             'ranked' => $beatmapset->approved,
             'status' => $beatmapset->status(),
             'has_scores' => $beatmapset->hasScores(),
+            'discussion_enabled' => $beatmapset->discussion_enabled,
+            'is_watched' => BeatmapsetWatch::check($beatmapset, Auth::user()),
         ];
     }
 
@@ -84,38 +88,33 @@ class BeatmapsetTransformer extends Fractal\TransformerAbstract
         });
     }
 
-    public function includeDiscussionStatus($beatmapset)
-    {
-        return $this->item($beatmapset, function ($beatmapset) {
-            return [
-                'enabled' => $beatmapset->beatmapsetDiscussion()->exists(),
-            ];
-        });
-    }
-
     public function includeNominations(Beatmapset $beatmapset)
     {
+        if (!in_array($beatmapset->status(), ['wip', 'pending', 'qualified'], true)) {
+            return;
+        }
+
+        $result = [
+            'required_hype' => $beatmapset->requiredHype(),
+            'required' => $beatmapset->requiredNominationCount(),
+            'current' => $beatmapset->currentNominationCount(),
+        ];
+
         if ($beatmapset->isPending()) {
             $currentUser = Auth::user();
 
             $nominations = $beatmapset->recentEvents()->get();
+
             foreach ($nominations as $nomination) {
                 if ($nomination->type === BeatmapsetEvent::DISQUALIFY) {
                     $disqualifyEvent = $nomination;
                 }
+
                 if ($currentUser !== null &&
                     $nomination->user_id === $currentUser->user_id &&
                     $nomination->type === BeatmapsetEvent::NOMINATE) {
                     $alreadyNominated = true;
                 }
-            }
-
-            $result = [
-                'required' => $beatmapset->requiredNominationCount(),
-                'current' => $beatmapset->currentNominationCount(),
-            ];
-            if (priv_check('BeatmapsetNominatorsView')->can()) {
-                $result['nominators'] = $beatmapset->nominators();
             }
 
             if (isset($disqualifyEvent)) {
@@ -127,34 +126,24 @@ class BeatmapsetTransformer extends Fractal\TransformerAbstract
             if ($currentUser !== null) {
                 $result['nominated'] = $alreadyNominated ?? false;
             }
-
-            return $this->item($beatmapset, function ($beatmapset) use ($result) {
-                return $result;
-            });
         } elseif ($beatmapset->qualified()) {
             $eta = $beatmapset->rankingETA();
-            $result = [
-                'ranking_eta' => json_time($eta),
-            ];
-
-            if (priv_check('BeatmapsetNominatorsView')->can()) {
-                $result['nominators'] = $beatmapset->nominators();
-            }
-
-            return $this->item($beatmapset, function ($beatmapset) use ($result) {
-                return $result;
-            });
-        } else {
-            return;
+            $result['ranking_eta'] = json_time($eta);
         }
+
+        return $this->item($beatmapset, function ($beatmapset) use ($result) {
+            return $result;
+        });
     }
 
-    public function includeDescription(Beatmapset $beatmapset)
+    public function includeDescription(Beatmapset $beatmapset, Fractal\ParamBag $params)
     {
-        return $this->item($beatmapset, function ($beatmapset) {
-            return [
-                'description' => $beatmapset->description(),
-            ];
+        $editable = $params->get('editable');
+
+        return $this->item($beatmapset, function ($beatmapset) use ($editable) {
+            return $editable
+                ? ['description' => $beatmapset->description(), 'bbcode' => $beatmapset->editableDescription()]
+                : ['description' => $beatmapset->description()];
         });
     }
 
@@ -205,5 +194,13 @@ class BeatmapsetTransformer extends Fractal\TransformerAbstract
         return $this->item($beatmapset, function ($beatmapset) {
             return $beatmapset->ratingsCount();
         });
+    }
+
+    public function includeRecentFavourites(Beatmapset $beatmapset)
+    {
+        return $this->collection(
+            $beatmapset->recentFavourites(),
+            new \App\Transformers\UserCompactTransformer()
+        );
     }
 }

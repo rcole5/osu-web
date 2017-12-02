@@ -49,20 +49,17 @@
 
     @if (priv_check('LivestreamPromote')->can())
         <div class="livestream-featured__actions">
-            <a
+            <button
+                type="button"
+                class="btn-circle"
                 data-remote="1"
                 data-method="POST"
-                class="btn-circle"
-                href="{{ route('livestreams.promote') }}"
+                data-url="{{ route('livestreams.promote') }}"
             >
-                <i class="fa fa-thumbs-down"></i>
-            </a>
+                <span class="btn-circle__content">
+                    <i class="fa fa-thumbs-down"></i>
+                </span>
+            </button>
         </div>
     @endif
 </div>
-
-@section('script')
-    @parent
-
-    <script src="https://player.twitch.tv/js/embed/v1.js"></script>
-@endsection

@@ -16,47 +16,68 @@
 #    along with osu!web.  If not, see <http://www.gnu.org/licenses/>.
 ###
 
-{div, h2, li, ul} = React.DOM
+{div, h2, li, ul} = ReactDOMFactories
 el = React.createElement
 
-ProfilePage.Main = React.createClass
-  mixins: [StickyTabsMixin, ScrollingPageMixin]
+pages = document.getElementsByClassName("js-switchable-mode-page--scrollspy")
+pagesOffset = document.getElementsByClassName("js-switchable-mode-page--scrollspy-offset")
 
-  getInitialState: ->
+currentLocation = ->
+  "#{document.location.pathname}#{document.location.search}"
+
+
+class ProfilePage.Main extends React.PureComponent
+  constructor: (props) ->
+    super props
+
     savedStateString = document.body.dataset.profilePageState
+
     if savedStateString?
-      return JSON.parse(savedStateString)
+      @state = JSON.parse(savedStateString)
+      delete document.body.dataset.profilePageState
+      return
 
-    optionsHash = ProfilePageHash.parse location.hash
-    @initialPage = optionsHash.page
+    page = location.hash.slice(1)
+    @initialPage = page if page?
 
-    currentMode: @validMode(optionsHash.mode ? @props.user.playmode)
-    user: @props.user
-    userPage:
-      html: @props.userPage.html
-      initialRaw: @props.userPage.raw
-      raw: @props.userPage.raw
-      editing: false
-      selection: [0, 0]
-    tabsSticky: false
-    profileOrder: @props.user.profileOrder[..]
+    @state =
+      currentMode: props.currentMode
+      user: props.user
+      userPage:
+        html: props.userPage.html
+        initialRaw: props.userPage.raw
+        raw: props.userPage.raw
+        editing: false
+        selection: [0, 0]
+      tabsSticky: false
+      profileOrder: props.user.profileOrder[..]
+      scoresBest: @props.scores.best
+      scoresFirsts: @props.scores.firsts
+      scoresRecent: @props.scores.recent
+      beatmapPlaycounts: @props.beatmapsets.most_played
+      favouriteBeatmapsets: @props.beatmapsets.favourite
+      rankedAndApprovedBeatmapsets: @props.beatmapsets.ranked_and_approved
+      unrankedBeatmapsets: @props.beatmapsets.unranked
+      graveyardBeatmapsets: @props.beatmapsets.graveyard
+      recentlyReceivedKudosu: @props.recentlyReceivedKudosu
+      showMorePagination: {}
 
-
-  componentDidMount: ->
+  componentDidMount: =>
     $.subscribe 'user:update.profilePage', @userUpdate
     $.subscribe 'user:page:update.profilePage', @userPageUpdate
-    $.subscribe 'playmode:set.profilePage', @setCurrentMode
+    $.subscribe 'profile:showMore.profilePage', @showMore
     $.subscribe 'profile:page:jump.profilePage', @pageJump
     $.subscribe 'stickyHeader.profilePage', @_tabsStick
+    $(window).on 'throttled-scroll.profilePage', @pageScan
 
-    $(@refs.pages).sortable
+    $(@pages).sortable
       cursor: 'move'
       handle: '.js-profile-page-extra--sortable-handle'
       revert: 150
       scrollSpeed: 10
       update: @updateOrder
 
-    $(@refs.tabs).sortable
+    $(@tabs).sortable
       items: '[data-page-id]'
       tolerance: 'pointer'
       cursor: 'move'
@@ -67,27 +88,27 @@ ProfilePage.Main = React.createClass
 
     osu.pageChange()
 
+    @modeScrollUrl = currentLocation()
+
     Timeout.set 0, =>
       @pageJump null, @initialPage
 
 
-  componentWillUnmount: ->
+  componentWillUnmount: =>
     $.unsubscribe '.profilePage'
     $(window).off '.profilePage'
 
-    for sortable in ['pages', 'tabs']
-      $(@refs[sortable]).sortable 'destroy'
+    for sortable in [@pages, @tabs]
+      $(sortable).sortable 'destroy'
 
     document.body.dataset.profilePageState = JSON.stringify(@state)
 
+    $(window).stop()
+    Timeout.clear @modeScrollTimeout
 
-  render: ->
-    rankHistories = @props.allRankHistories[@state.currentMode]
-    stats = @props.allStats[@state.currentMode]
-    scores = @props.allScores[@state.currentMode]
-    scoresBest = @props.allScoresBest[@state.currentMode]
-    scoresFirst = @props.allScoresFirst[@state.currentMode]
-    withMePage = @state.userPage.html != '' || @props.withEdit
+
+  render: =>
+    withMePage = @state.userPage.initialRaw.trim() != '' || @props.withEdit
 
     extraPageParams =
       me:
@@ -105,20 +126,32 @@ ProfilePage.Main = React.createClass
       kudosu:
         props:
           user: @state.user
-          recentlyReceivedKudosu: @props.recentlyReceivedKudosu
+          recentlyReceivedKudosu: @state.recentlyReceivedKudosu
+          pagination: @state.showMorePagination
         component: ProfilePage.Kudosu
 
       top_ranks:
         props:
           user: @state.user
-          scoresBest: scoresBest
-          scoresFirst: scoresFirst
+          scoresBest: @state.scoresBest
+          scoresFirsts: @state.scoresFirsts
+          currentMode: @state.currentMode
+          pagination: @state.showMorePagination
         component: ProfilePage.TopRanks
 
       beatmaps:
         props:
-          favouriteBeatmapsets: @props.favouriteBeatmapsets
-          rankedAndApprovedBeatmapsets: @props.rankedAndApprovedBeatmapsets
+          user: @state.user
+          favouriteBeatmapsets: @state.favouriteBeatmapsets
+          rankedAndApprovedBeatmapsets: @state.rankedAndApprovedBeatmapsets
+          unrankedBeatmapsets: @state.unrankedBeatmapsets
+          graveyardBeatmapsets: @state.graveyardBeatmapsets
+          counts:
+            favouriteBeatmapsets: @state.user.favouriteBeatmapsetCount[0]
+            rankedAndApprovedBeatmapsets: @state.user.rankedAndApprovedBeatmapsetCount[0]
+            unrankedBeatmapsets: @state.user.unrankedBeatmapsetCount[0]
+            graveyardBeatmapsets: @state.user.graveyardBeatmapsetCount[0]
+          pagination: @state.showMorePagination
         component: ProfilePage.Beatmaps
 
       medals:
@@ -131,22 +164,24 @@ ProfilePage.Main = React.createClass
 
       historical:
         props:
-          beatmapPlaycounts: @props.beatmapPlaycounts
-          rankHistories: rankHistories
-          scores: scores
+          beatmapPlaycounts: @state.beatmapPlaycounts
+          scoresRecent: @state.scoresRecent
+          user: @state.user
+          currentMode: @state.currentMode
+          pagination: @state.showMorePagination
         component: ProfilePage.Historical
 
-    div className: 'osu-layout__section',
+    div className: 'osu-layout osu-layout--full',
       el ProfilePage.Header,
         user: @state.user
-        stats: stats
+        stats: @props.statistics
         currentMode: @state.currentMode
         withEdit: @props.withEdit
-        rankHistories: rankHistories
+        rankHistory: @props.rankHistory
 
       div
         className: "hidden-xs page-extra-tabs #{'page-extra-tabs--floating' if @state.tabsSticky}"
-        ref: 'tabs'
+        ref: (el) => @tabs = el
 
         div
           className: 'js-sticky-header'
@@ -175,29 +210,124 @@ ProfilePage.Main = React.createClass
 
       div
         className: 'osu-layout__section osu-layout__section--extra'
-        div className: 'osu-layout__row', ref: 'pages',
+        div
+          className: 'osu-layout__row'
+          ref: (el) => @pages = el
           for name in @state.profileOrder
             @extraPage name, extraPageParams[name]
 
 
-  extraPage: (name, {extraClass, props, component}) ->
+  _tabsStick: (_e, target) =>
+    newState = (target == 'page-extra-tabs')
+    @setState(tabsSticky: newState) if newState != @state.tabsSticky
+
+
+  extraPage: (name, {extraClass, props, component}) =>
     topClassName = 'js-switchable-mode-page--scrollspy js-switchable-mode-page--page'
     props.withEdit = @props.withEdit
     props.name = name
+
+    @extraPages ?= {}
 
     div
       key: name
       'data-page-id': name
       className: "#{topClassName} #{extraClass}"
+      ref: (el) => @extraPages[name] = el
       el component, props
 
 
-  setCurrentMode: (_e, {mode}) ->
-    return if @state.currentMode == mode
-    @setState currentMode: @validMode(mode)
+  showMore: (e, {showMoreLink}) =>
+    propertyName = showMoreLink.dataset.showMore
+    url = showMoreLink.dataset.showMoreUrl
+    offset = @state[propertyName].length
+    perPage = parseInt(showMoreLink.dataset.showMorePerPage)
+    maxResults = parseInt(showMoreLink.dataset.showMoreMaxResults)
+
+    paginationState = _.cloneDeep @state.showMorePagination
+    paginationState[propertyName] ?= {}
+    paginationState[propertyName].loading = true
+
+    @setState showMorePagination: paginationState, ->
+      $.get osu.updateQueryString('offset', offset, url), (data) =>
+        state = _.cloneDeep(@state[propertyName]).concat(data)
+
+        paginationState = _.cloneDeep @state.showMorePagination
+        paginationState[propertyName].loading = false
+        paginationState[propertyName].hasMore = data.length == perPage && state.length < maxResults
+
+        @setState
+          "#{propertyName}": state
+          showMorePagination: paginationState
 
 
-  updateOrder: (event) ->
+  pageJump: (_e, page) =>
+    if page == 'main'
+      @setCurrentPage null, page
+      return
+
+    target = $(@extraPages[page])
+
+    # if invalid page is specified, scan current position
+    if target.length == 0
+      @pageScan()
+      return
+
+    # Don't bother scanning the current position.
+    # The result will be wrong when target page is too short anyway.
+    @scrolling = true
+    Timeout.clear @modeScrollTimeout
+
+    $(window).stop().scrollTo target, 500,
+      onAfter: =>
+        # Manually set the mode to avoid confusion (wrong highlight).
+        # Scrolling will obviously break it but that's unfortunate result
+        # from having the scrollspy marker at middle of page.
+        @setCurrentPage null, page, =>
+          # Doesn't work:
+          # - part of state (callback, part of mode setting)
+          # - simple variable in callback
+          # Both still change the switch too soon.
+          @modeScrollTimeout = Timeout.set 100, => @scrolling = false
+      # count for the tabs height
+      offset: pagesOffset[0].getBoundingClientRect().height * -1
+
+
+  pageScan: =>
+    return if @modeScrollUrl != currentLocation()
+
+    return if @scrolling
+    return if pages.length == 0
+
+    anchorHeight = pagesOffset[0].getBoundingClientRect().height
+
+    if osu.bottomPage()
+      @setCurrentPage null, _.last(pages).dataset.pageId
+      return
+
+    for page in pages
+      pageDims = page.getBoundingClientRect()
+      pageBottom = pageDims.bottom - Math.min(pageDims.height * 0.75, 200)
+      continue unless pageBottom > anchorHeight
+
+      @setCurrentPage null, page.dataset.pageId
+      return
+
+    @setCurrentPage null, page.dataset.pageId
+
+
+  setCurrentPage: (_e, page, extraCallback) =>
+    callback = =>
+      extraCallback?()
+      @setHash?()
+
+    if @state.currentPage == page
+      return callback()
+
+    @setState currentPage: page, callback
+
+
+  updateOrder: (event) =>
     $elems = $(event.target)
 
     newOrder = $elems.sortable('toArray', attribute: 'data-page-id')
@@ -218,24 +348,25 @@ ProfilePage.Main = React.createClass
         $.publish 'user:update', userData
 
       .fail (xhr) =>
-        osu.ajaxError xhr
+        osu.emitAjaxError() xhr
 
         @setState profileOrder: @state.user.profileOrder
 
       .always LoadingOverlay.hide
 
 
-  userUpdate: (_e, user) ->
-    return if !user?
-    @setState user: user
+  userUpdate: (_e, user) =>
+    return if user?.id != @state.user.id
+    # this component needs full user object but sometimes this event only sends part of it
+    @setState user: _.assign({}, @state.user, user)
 
 
-  userPageUpdate: (_e, newUserPage) ->
+  userPageUpdate: (_e, newUserPage) =>
     currentUserPage = _.cloneDeep @state.userPage
     @setState userPage: _.extend(currentUserPage, newUserPage)
 
 
-  validMode: (mode) ->
+  validMode: (mode) =>
     modes = BeatmapHelper.modes
 
     if _.includes(modes, mode)

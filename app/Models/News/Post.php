@@ -102,8 +102,6 @@ class Post
         return static::nameFile($this->id);
     }
 
-    // FIXME: the current news use html for first image and thus
-    //        not processed by markdown
     public function firstImage()
     {
         return $this->page()['firstImage'];
@@ -177,8 +175,7 @@ class Post
 
                 $page = OsuMarkdownProcessor::process($rawPage, [
                     'html_input' => 'allow',
-                    'path_prefix' => '/news',
-                    'path' => $this->id,
+                    'path' => route('news.show', $this->id),
                     'block_modifiers' => ['news'],
                 ]);
 
@@ -191,6 +188,11 @@ class Post
         }
 
         return $this->cache['page'];
+    }
+
+    public function previewText()
+    {
+        return first_paragraph($this->bodyHtml());
     }
 
     public function title()

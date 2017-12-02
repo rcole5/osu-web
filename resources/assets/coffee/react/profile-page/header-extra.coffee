@@ -16,7 +16,7 @@
 #    along with osu!web.  If not, see <http://www.gnu.org/licenses/>.
 ###
 
-{a, div, span} = React.DOM
+{a, div, span} = ReactDOMFactories
 el = React.createElement
 
 bn = 'profile-header-extra'
@@ -32,7 +32,7 @@ class ProfilePage.HeaderExtra extends React.Component
 
 
   componentWillMount: =>
-    @id = "profile-page-header-extra-#{osu.generateId()}"
+    @id = "profile-page-header-extra-#{osu.uuid()}"
 
 
   componentDidMount: =>
@@ -49,6 +49,11 @@ class ProfilePage.HeaderExtra extends React.Component
 
 
   render: =>
+    if currentUser.id?
+      friendState = _.find(currentUser.friends, (o) => o.target_id == @props.user.id)
+
+    friendButtonHidden = !currentUser.id || currentUser.id == @props.user.id
+
     originKeys = []
     originKeys.push 'country' if @props.user.country.name?
     originKeys.push 'age' if @props.user.age?
@@ -65,6 +70,18 @@ class ProfilePage.HeaderExtra extends React.Component
           js-switchable-mode-page--scrollspy js-switchable-mode-page--page
         """
       'data-page-id': 'main'
+      div className: "#{bn} #{bn}--follower-meta",
+        if currentUser.id?
+          el FriendButton, user_id: @props.user.id
+
+        div className: "#{bn}__follower-count#{if friendButtonHidden then '--no-button' else ''}",
+          osu.transChoice('users.show.extra.followers', @props.user.followerCount[0].toLocaleString())
+
+        if friendState?.mutual
+          div className: "#{bn}__follower-mutual-divider", "|"
+        if friendState?.mutual
+          div className: "#{bn}__follower-mutual", osu.trans 'friends.state.mutual'
+
       div className: bn,
         div className: "#{bn}__column #{bn}__column--text",
           if originKeys.length != 0 || @props.user.title?
@@ -79,10 +96,18 @@ class ProfilePage.HeaderExtra extends React.Component
                         age: rowValue osu.trans('users.show.age', age: @props.user.age)
 
           div className: "#{bn}__rows",
-            div
-              className: "#{bn}__row"
-              dangerouslySetInnerHTML:
-                __html: @props.user.joinDate
+            if moment(@props.user.join_date).isBefore moment('2008-01-01')
+              div
+                className: "#{bn}__row"
+                title: moment(@props.user.join_date).format(osu.trans('common.datetime.year_month.moment')),
+                  osu.trans 'users.show.first_members'
+            else
+              div
+                className: "#{bn}__row"
+                dangerouslySetInnerHTML:
+                  __html:
+                    osu.trans 'users.show.joined_at',
+                      date: rowValue moment(@props.user.join_date).format(osu.trans('common.datetime.year_month.moment'))
             div
               className: "#{bn}__row"
               dangerouslySetInnerHTML:
@@ -99,7 +124,7 @@ class ProfilePage.HeaderExtra extends React.Component
                     osu.trans 'users.show.plays_with',
                       devices: rowValue playsWith
 
-        div className: "#{bn}__column #{bn}__column--text",
+        div className: "#{bn}__column #{bn}__column--text #{bn}__column--shrink",
           div className: "#{bn}__rows",
             @fancyLink
               key: 'location'
@@ -112,6 +137,10 @@ class ProfilePage.HeaderExtra extends React.Component
               key: 'interests'
               icon: 'heart-o'
 
+            @fancyLink
+              key: 'occupation'
+              icon: 'suitcase'
+
           div className: "#{bn}__rows",
             @fancyLink
               key: 'twitter'
@@ -122,6 +151,11 @@ class ProfilePage.HeaderExtra extends React.Component
                     style: fontStyle: 'normal'
                     '@'
                   @props.user.twitter
+
+            @fancyLink
+              key: 'website'
+              icon: 'globe'
+              url: @props.user.website
 
             @fancyLink
               key: 'skype'
@@ -138,14 +172,14 @@ class ProfilePage.HeaderExtra extends React.Component
               div className: "#{bn}__rank-global",
                 if @state.hoverLine1?
                   @state.hoverLine1
-                else if @props.stats.rank.is_ranked
+                else if @props.stats.rank.global?
                   "##{Math.round(@props.stats.rank.global).toLocaleString()}"
                 else
                   '\u00A0'
               div className: "#{bn}__rank-country",
                 if @state.hoverLine2?
                   @state.hoverLine2
-                else if @props.stats.rank.is_ranked
+                else if @props.stats.rank.country?
                   "#{@props.user.country.name} ##{Math.round(@props.stats.rank.country).toLocaleString()}"
                 else
                   '\u00A0'
@@ -154,7 +188,10 @@ class ProfilePage.HeaderExtra extends React.Component
             className: "#{bn}__rank-chart"
             ref: (el) => @rankChartArea = el
           div className: "#{bn}__rank-box",
-            "#{Math.round(@props.stats.pp).toLocaleString()}pp"
+            if @props.stats.is_ranked
+              "#{Math.round(@props.stats.pp).toLocaleString()}pp"
+            else
+              osu.trans('users.show.extra.unranked')
 
   fancyLink: ({key, url, icon, text, title}) =>
     return if !@props.user[key]?
@@ -163,7 +200,7 @@ class ProfilePage.HeaderExtra extends React.Component
 
     component
       href: url
-      className: "#{bn}__row #{bn}__row--fancy-link"
+      className: "#{bn}__row #{bn}__row--fancy-link u-ellipsis-overflow"
       title: title
       el Icon,
         name: icon ? key
@@ -191,7 +228,7 @@ class ProfilePage.HeaderExtra extends React.Component
       options =
         scales:
           y: d3.scaleLog()
-        hoverId: "rank-chart-#{osu.generateId()}"
+        hoverId: "rank-chart-#{osu.uuid()}"
 
       @rankChart = new FancyChart(@rankChartArea, options)
       @rankChart.margins =
@@ -204,8 +241,9 @@ class ProfilePage.HeaderExtra extends React.Component
       $.subscribe "fancy-chart:hover-#{options.hoverId}:refresh.#{@id}", @rankChartHover
       $.subscribe "fancy-chart:hover-#{options.hoverId}:end.#{@id}", @rankChartHover
 
-    data = (@props.rankHistories?.data ? [])
-    data = data.map (rank, i) ->
+    data = @props.rankHistory?.data if @props.stats.is_ranked
+
+    data = (data ? []).map (rank, i) ->
       x: i - data.length + 1
       y: -rank
     .filter (point) -> point.y < 0

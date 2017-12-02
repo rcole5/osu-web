@@ -20,73 +20,178 @@
 
 namespace App\Models\Wiki;
 
+use App;
 use App\Exceptions\GitHubNotFoundException;
-use App\Exceptions\GitHubTooLargeException;
 use App\Libraries\OsuMarkdownProcessor;
 use App\Libraries\OsuWiki;
-use Cache;
+use Carbon\Carbon;
+use Elasticsearch\Common\Exceptions\Missing404Exception;
 use Es;
 
 class Page
 {
     // in minutes
-    const CACHE_DURATION = 300;
+    const REINDEX_AFTER = 300;
     const VERSION = 1;
 
     public $locale;
     public $requestedLocale;
 
     private $cache = [];
+    private $defaultTitle;
+    private $defaultSubtitle;
 
-    public static function cacheVersionPage()
+    public static function cleanupPath($path)
     {
-        return static::VERSION.'.'.OsuMarkdownProcessor::VERSION;
+        return strtolower(str_replace(['-', '/', '_'], ' ', $path));
     }
 
-    public static function search($params)
+    public static function search($rawParams, $locale = null)
     {
-        $params = static::searchParams($params);
+        $locale ?? ($locale = config('app.fallback_locale'));
+        $params = static::searchParams($rawParams);
+        $matchParams = [];
 
-        $query = es_query_and_words($params['query']);
+        if (!present($params['query'])) {
+            return [];
+        }
 
-        $searchParams = [
-            'index' => config('osu.elasticsearch.index').':wiki_pages',
-            'type' => 'wiki_page',
+        $searchParams = static::searchIndexConfig([
             'size' => $params['limit'],
             'from' => ($params['page'] - 1) * $params['limit'],
-            'q' => $query,
+        ]);
+        $searchParams['body']['query']['bool']['must'] = [];
+
+        $searchParams['body']['query']['bool']['must'][] = [
+            'bool' => [
+                'minimum_should_match' => 1,
+                'should' => [
+                    ['constant_score' => [
+                        'boost' => 1000,
+                        'query' => [
+                            'match' => [
+                                'locale' => $params['locale'] ?? App::getLocale(),
+                            ],
+                        ],
+                    ]],
+                    ['constant_score' => [
+                        'query' => [
+                            'match' => [
+                                'locale' => config('app.fallback_locale'),
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
         ];
 
-        return Es::search($searchParams)['hits']['hits'];
+        $searchParams['body']['query']['bool']['must'][] = [
+            'bool' => [
+                'minimum_should_match' => 1,
+                'should' => [
+                    ['match' => [
+                        'title' => [
+                            'query' => $params['query'],
+                            'boost' => 10,
+                        ],
+                    ]],
+                    ['match' => [
+                        'path_clean' => [
+                            'query' => $params['query'],
+                            'boost' => 9,
+                        ],
+                    ]],
+                    ['match' => [
+                        'page_text' => $params['query'],
+                    ]],
+                ],
+            ],
+        ];
+
+        $results = Es::search($searchParams);
+
+        $pages = [];
+
+        foreach ($results['hits']['hits'] as $hit) {
+            $document = $hit['_source'];
+            $page = new static(null, null, $document);
+
+            $pages[] = $page;
+        }
+
+        return [
+            'data' => $pages,
+            'total' => $results['hits']['total'],
+            'params' => $params,
+        ];
+    }
+
+    public static function searchIndexConfig($params = [])
+    {
+        return array_merge([
+            'index' => config('osu.elasticsearch.index').':wiki_pages_20171130',
+            'type' => 'wiki_page',
+        ], $params);
     }
 
     public static function searchParams($params)
     {
-        $params['query'] = $params['query'] ?? null;
-        $params['limit'] = max(1, min(50, $params['limit'] ?? 50));
+        $params['query'] = presence($params['query'] ?? null);
+        $params['limit'] = clamp($params['limit'] ?? 50, 1, 50);
         $params['page'] = max(1, $params['page'] ?? 1);
-        $params['user_ids'] = get_arr($params['user_ids'] ?? null, 'get_int');
-        $params['forum_ids'] = get_arr($params['forum_ids'] ?? null, 'get_int');
-        $params['topic_id'] = get_int($params['topic_id'] ?? null);
+        $params['locale'] = $params['locale'] ?? null;
 
         return $params;
     }
 
-    public function __construct($path, $locale)
+    public static function searchPath($path, $locale)
     {
+        $searchPath = static::cleanupPath($path);
+
+        $params = static::searchIndexConfig();
+        $params['_source'] = 'path';
+        $params['size'] = 10;
+        $params['body']['query']['bool']['must'][] = [
+            'match' => [
+                'path_clean' => es_query_and_words($searchPath),
+            ],
+        ];
+        $params['body']['query']['bool']['must'][] = [
+            'match' => [
+                'locale' => $locale,
+            ],
+        ];
+
+        $results = Es::search($params)['hits']['hits'];
+
+        if (count($results) === 0) {
+            return;
+        }
+
+        foreach ($results as $result) {
+            $resultPath = static::cleanupPath($result['_source']['path']);
+
+            if ($resultPath === $searchPath) {
+                return $result['_source']['path'];
+            }
+        }
+    }
+
+    public function __construct($path, $locale, $esCache = null)
+    {
+        if ($esCache !== null) {
+            $path = $esCache['path'];
+            $locale = $esCache['locale'];
+            $this->cache['page'] = json_decode($esCache['page'], true);
+        }
+
         $this->path = OsuWiki::cleanPath($path);
         $this->requestedLocale = $locale;
         $this->locale = $locale;
-    }
 
-    public function cacheKeyLocales()
-    {
-        return 'wiki:page:locales:'.$this->path;
-    }
-
-    public function cacheKeyPage()
-    {
-        return 'wiki:page:page:'.static::cacheVersionPage().':'.$this->pagePath();
+        $defaultTitles = explode('/', str_replace('_', ' ', $this->path));
+        $this->defaultTitle = array_pop($defaultTitles);
+        $this->defaultSubtitle = array_pop($defaultTitles);
     }
 
     public function editUrl()
@@ -94,67 +199,49 @@ class Page
         return 'https://github.com/'.OsuWiki::USER.'/'.OsuWiki::REPOSITORY.'/tree/master/wiki/'.$this->pagePath();
     }
 
-    public function fetchLocales()
+    public function indexAdd($page)
     {
-        $locales = [];
+        $params = static::searchIndexConfig();
 
-        try {
-            $data = OsuWiki::fetch('wiki/'.$this->path);
-        } catch (GitHubNotFoundException $e) {
-            return $locales;
-        } catch (GitHubTooLargeException $e) {
-            return $locales;
-        }
-
-        // check if it's a file, not a directory.
-        if (isset($data['name'])) {
-            return $locales;
-        }
-
-        foreach ($data as $entry) {
-            $hasMatch = preg_match(
-                '/^(\w{2}(?:-\w{2})?)\.md$/',
-                $entry['name'],
-                $matches
-            );
-
-            if ($hasMatch === 1) {
-                $locales[] = $matches[1];
-            }
-        }
-
-        return $locales;
-    }
-
-    public function indexAdd($page = null)
-    {
-        $params = [
-            'index' => config('osu.elasticsearch.index').':wiki_pages',
-            'type' => 'wiki_page',
-            'id' => $this->pagePath(),
-            'body' => [
+        if ($page === null) {
+            $params['body'] = [
+                'locale' => null,
+                'path' => null,
+                'path_clean' => null,
+                'page_text' => null,
+                'page' => null,
+            ];
+        } else {
+            $params['body'] = [
                 'locale' => $this->locale,
                 'path' => $this->path,
-                'page' => $page ?? $this->page(),
-            ],
-        ];
-
-        Es::index($params);
-    }
-
-    public function locales()
-    {
-        if (!array_key_exists('locales', $this->cache)) {
-            $this->cache['locales'] = Cache::remember(
-                $this->cacheKeyLocales(),
-                static::CACHE_DURATION,
-                function () {
-                    return $this->fetchLocales();
-                }
-            );
+                'path_clean' => static::cleanupPath($this->path),
+                'page_text' => replace_tags_with_spaces($page['output']),
+                'page' => json_encode($page),
+            ];
         }
 
-        return $this->cache['locales'];
+        $params['id'] = $this->pagePath();
+        $params['body']['indexed_at'] = json_time(Carbon::now());
+        $params['body']['version'] = static::VERSION;
+
+        return Es::index($params);
+    }
+
+    public function indexRemove()
+    {
+        try {
+            return Es::delete(static::searchIndexConfig([
+                'id' => $this->pagePath(),
+            ]));
+        } catch (Missing404Exception $_e) {
+            // do nothing
+        }
+    }
+
+    public function isOutdated()
+    {
+        return $this->page()['header']['outdated'] ?? false;
     }
 
     public function page()
@@ -163,36 +250,63 @@ class Page
             foreach (array_unique([$this->requestedLocale, config('app.fallback_locale')]) as $locale) {
                 $this->locale = $locale;
 
-                $this->cache['page'] = Cache::remember(
-                    $this->cacheKeyPage(),
-                    static::CACHE_DURATION,
-                    function () {
-                        try {
-                            $page = OsuWiki::fetchContent('wiki/'.$this->pagePath());
-                        } catch (GitHubNotFoundException $_e) {
-                            $page = null;
-                        }
+                $config = static::searchIndexConfig([
+                    '_source' => ['page', 'indexed_at', 'version'],
+                    'body' => [
+                        'query' => [
+                            'term' => [
+                                '_id' => $this->pagePath(),
+                            ],
+                        ],
+                    ],
+                ]);
 
-                        // FIXME: add indexAdd/Remove accordingly.
-                        if (present($page)) {
-                            return OsuMarkdownProcessor::process($page, [
-                                'path_prefix' => '/help/wiki',
-                                'path' => $this->path,
-                            ]);
-                        } else {
-                            return [];
-                        }
+                try {
+                    $search = Es::search($config)['hits']['hits'];
+                } catch (Missing404Exception $e) {
+                    // hopefully just the index not yet created
+                }
+
+                $page = null;
+                $fetch = true;
+
+                if (isset($search) && count($search) > 0) {
+                    $result = $search[0]['_source'];
+                    $expired = Carbon
+                        ::parse($result['indexed_at'])
+                        ->addMinutes(static::REINDEX_AFTER)
+                        ->isPast();
+                    $wrongVersion = $result['version'] !== static::VERSION;
+                    $fetch = $expired || $wrongVersion;
+
+                    if (!$fetch) {
+                        $pageString = $search[0]['_source']['page'] ?? null;
+                        $page = json_decode($pageString, true);
                     }
-                );
+                }
 
-                if (!empty($this->cache['page'])) {
+                if ($fetch) {
+                    try {
+                        $body = OsuWiki::fetchContent('wiki/'.$this->pagePath());
+                    } catch (GitHubNotFoundException $_e) {
+                        $body = null;
+                    }
+
+                    if (present($body)) {
+                        $page = OsuMarkdownProcessor::process($body, [
+                            'path' => route('wiki.show', $this->path),
+                        ]);
+                    }
+
+                    $this->indexAdd($page);
+                }
+
+                if ($page !== null) {
                     break;
                 }
             }
 
-            if (empty($this->cache['page'])) {
-                $this->cache['page'] = null;
-            }
+            $this->cache['page'] = $page;
         }
 
         return $this->cache['page'];
@@ -205,17 +319,30 @@ class Page
 
     public function refresh()
     {
-        Cache::forget($this->cacheKeyPage());
-        Cache::forget($this->cacheKeyLocales());
+        return $this->indexRemove();
     }
 
-    public function title()
+    public function title($withSubtitle = false)
     {
-        return $this->page()['header']['title'];
+        if ($this->page() === null) {
+            return trans('wiki.show.missing_title');
+        }
+
+        $title = presence($this->page()['header']['title'] ?? null) ?? $this->defaultTitle;
+
+        if ($withSubtitle && present($this->subtitle())) {
+            $title = $this->subtitle().' / '.$title;
+        }
+
+        return $title;
     }
 
     public function subtitle()
     {
-        return $this->page()['header']['subtitle'];
+        if ($this->page() === null) {
+            return;
+        }
+
+        return presence($this->page()['header']['subtitle'] ?? null) ?? $this->defaultSubtitle;
     }
 }

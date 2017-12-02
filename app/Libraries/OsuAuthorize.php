@@ -22,6 +22,7 @@ namespace App\Libraries;
 
 use App\Exceptions\AuthorizationException;
 use App\Models\Beatmapset;
+use App\Models\BeatmapsetEvent;
 use App\Models\Chat\Channel as ChatChannel;
 use App\Models\Forum\Authorize as ForumAuthorize;
 use App\Models\Multiplayer\Match as MultiplayerMatch;
@@ -59,9 +60,11 @@ class OsuAuthorize
         return $this->cache[$cacheKey];
     }
 
-    public function checkBeatmapDiscussionAllowOrDenyKusodu($user, $discussion)
+    public function checkBeatmapDiscussionAllowOrDenyKudosu($user, $discussion)
     {
-        // no one but admin (not covered here) =D
+        if ($user !== null && ($user->isBNG() || $user->isGMT() || $user->isQAT())) {
+            return 'ok';
+        }
     }
 
     public function checkBeatmapDiscussionDestroy($user, $discussion)
@@ -71,11 +74,15 @@ class OsuAuthorize
         $this->ensureLoggedIn($user);
         $this->ensureCleanRecord($user);
 
+        if ($user->isGMT() || $user->isQAT()) {
+            return 'ok';
+        }
+
         if ($user->user_id !== $discussion->user_id) {
             return;
         }
 
-        if ($discussion->beatmapDiscussionPosts()->withoutDeleted()->count() > 1) {
+        if ($discussion->beatmapDiscussionPosts()->withoutDeleted()->withoutSystem()->count() > 1) {
             return $prefix.'has_reply';
         }
 
@@ -89,11 +96,6 @@ class OsuAuthorize
         $this->ensureLoggedIn($user);
         $this->ensureCleanRecord($user);
 
-        // no point resolving general discussion?
-        if ($discussion->timestamp === null) {
-            return $prefix.'general_discussion';
-        }
-
         if ($user->user_id === $discussion->user_id) {
             return 'ok';
         }
@@ -102,17 +104,27 @@ class OsuAuthorize
             return 'ok';
         }
 
+        if ($user->isBNG() || $user->isGMT() || $user->isQAT()) {
+            return 'ok';
+        }
+
         return $prefix.'not_owner';
     }
 
     public function checkBeatmapDiscussionRestore($user, $discussion)
     {
-        // no one but admin (not covered here) =D
+        if ($user !== null && ($user->isGMT() || $user->isQAT())) {
+            return 'ok';
+        }
     }
 
     public function checkBeatmapDiscussionShow($user, $discussion)
     {
         if ($discussion->deleted_at === null) {
+            return 'ok';
+        }
+
+        if ($user !== null && ($user->isGMT() || $user->isQAT())) {
             return 'ok';
         }
     }
@@ -128,13 +140,21 @@ class OsuAuthorize
             return $prefix.'owner';
         }
 
+        if ($user->isBNG() || $user->isGMT() || $user->isQAT()) {
+            return 'ok';
+        }
+
         // rate limit
         $recentVotesCount = $user
             ->beatmapDiscussionVotes()
-            ->where('created_at', '<', Carbon::now()->subHour())
+            ->where('created_at', '>', Carbon::now()->subHour())
             ->count();
 
-        if ($recentVotesCount > 10) {
+        if ($recentVotesCount > 60) {
+            return $prefix.'limit_exceeded';
+        }
+
+        if ($discussion->userRecentVotesCount($user) >= 3) {
             return $prefix.'limit_exceeded';
         }
 
@@ -150,6 +170,10 @@ class OsuAuthorize
 
         if ($post->system) {
             return $prefix.'system_generated';
+        }
+
+        if ($user->isGMT() || $user->isQAT()) {
+            return 'ok';
         }
 
         if ($user->user_id !== $post->user_id) {
@@ -179,12 +203,18 @@ class OsuAuthorize
 
     public function checkBeatmapDiscussionPostRestore($user, $post)
     {
-        // no one but admin (not covered here) =D
+        if ($user !== null && ($user->isGMT() || $user->isQAT())) {
+            return 'ok';
+        }
     }
 
     public function checkBeatmapDiscussionPostShow($user, $post)
     {
         if ($post->deleted_at === null) {
+            return 'ok';
+        }
+
+        if ($user !== null && ($user->isGMT() || $user->isQAT())) {
             return 'ok';
         }
     }
@@ -195,11 +225,6 @@ class OsuAuthorize
         $this->ensureCleanRecord($user);
 
         return 'ok';
-    }
-
-    public function checkBeatmapsetNominatorsView($user, $beatmapset)
-    {
-        // no one but admin (not covered here) =D
     }
 
     public function checkBeatmapsetNominate($user, $beatmapset)
@@ -221,6 +246,17 @@ class OsuAuthorize
         return 'ok';
     }
 
+    public function checkBeatmapsetDescriptionEdit($user, $beatmapset)
+    {
+        $this->ensureLoggedIn($user);
+
+        if ($user->user_id === $beatmapset->user_id || $user->isGMT() || $user->isQAT()) {
+            return 'ok';
+        }
+
+        return 'beatmapset_description.edit.not_owner';
+    }
+
     public function checkBeatmapsetDisqualify($user, $beatmapset)
     {
         $this->ensureLoggedIn($user);
@@ -232,6 +268,46 @@ class OsuAuthorize
         if ($beatmapset->approved !== Beatmapset::STATES['qualified']) {
             return 'beatmap_discussion.disqualify.incorrect-state';
         }
+
+        return 'ok';
+    }
+
+    public function checkBeatmapsetEventViewUserId($user, $event)
+    {
+        if ($user !== null && $user->isQAT()) {
+            return 'ok';
+        }
+
+        static $publicEvents = [
+            BeatmapsetEvent::NOMINATE,
+            BeatmapsetEvent::QUALIFY,
+            BeatmapsetEvent::DISQUALIFY,
+            BeatmapsetEvent::APPROVE,
+            BeatmapsetEvent::RANK,
+            BeatmapsetEvent::KUDOSU_GAIN,
+            BeatmapsetEvent::KUDOSU_LOST,
+        ];
+
+        if (in_array($event->type, $publicEvents, true)) {
+            return 'ok';
+        }
+
+        static $kudosuModerationEvents = [
+            BeatmapsetEvent::KUDOSU_ALLOW,
+            BeatmapsetEvent::KUDOSU_DENY,
+        ];
+
+        if (in_array($event->type, $kudosuModerationEvents, true)) {
+            if ($this->checkBeatmapDiscussionAllowOrDenyKudosu($user, null) === 'ok') {
+                return 'ok';
+            }
+        }
+    }
+
+    public function checkBeatmapsetDownload($user, $beatmapset)
+    {
+        // restricted users are still allowed to download
+        $this->ensureLoggedIn($user);
 
         return 'ok';
     }
@@ -250,10 +326,6 @@ class OsuAuthorize
 
             if ($target->moderated) {
                 return $prefix.'channel.moderated';
-            }
-
-            if ($target->name !== '#lazer') {
-                return $prefix.'channel.not_lazer';
             }
         } elseif ($target instanceof User) {
             // TODO: blocklist/ignore, etc
@@ -348,7 +420,7 @@ class OsuAuthorize
 
     public function checkForumView($user, $forum)
     {
-        if ($user !== null && $user->isGMT()) {
+        if ($user !== null && ($user->isGMT() || $user->isQAT())) {
             return 'ok';
         }
 
@@ -366,7 +438,7 @@ class OsuAuthorize
         $this->ensureLoggedIn($user);
         $this->ensureCleanRecord($user);
 
-        if ($user->isGMT()) {
+        if ($user->isGMT() || $user->isQAT()) {
             return 'ok';
         }
 
@@ -399,7 +471,7 @@ class OsuAuthorize
         $this->ensureLoggedIn($user);
         $this->ensureCleanRecord($user);
 
-        if ($user->isGMT()) {
+        if ($user->isGMT() || $user->isQAT()) {
             return 'ok';
         }
 
@@ -409,6 +481,10 @@ class OsuAuthorize
 
         if ($post->poster_id !== $user->user_id) {
             return $prefix.'not_owner';
+        }
+
+        if ($post->trashed()) {
+            return $prefix.'deleted';
         }
 
         if ($post->topic->isLocked()) {
@@ -429,7 +505,7 @@ class OsuAuthorize
 
     public function checkForumTopicModerate($user, $topic)
     {
-        if ($user !== null && $user->isGMT()) {
+        if ($user !== null && ($user->isGMT() || $user->isQAT())) {
             return 'ok';
         }
     }
@@ -441,7 +517,7 @@ class OsuAuthorize
         $this->ensureLoggedIn($user, $prefix.'user.');
         $this->ensureCleanRecord($user, $prefix.'user.');
 
-        if ($user->isGMT()) {
+        if ($user->isGMT() || $user->isQAT()) {
             return 'ok';
         }
 
@@ -471,7 +547,7 @@ class OsuAuthorize
         $this->ensureLoggedIn($user);
         $this->ensureCleanRecord($user);
 
-        if ($user->isGMT()) {
+        if ($user->isGMT() || $user->isQAT()) {
             return 'ok';
         }
 
@@ -516,7 +592,7 @@ class OsuAuthorize
         $this->ensureLoggedIn($user);
         $this->ensureCleanRecord($user);
 
-        if ($user->isGMT()) {
+        if ($user->isGMT() || $user->isQAT()) {
             return 'ok';
         }
 

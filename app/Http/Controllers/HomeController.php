@@ -22,12 +22,12 @@ namespace App\Http\Controllers;
 
 use App;
 use App\Libraries\CurrentStats;
+use App\Libraries\Search;
+use App\Models\BeatmapDownload;
 use App\Models\Beatmapset;
-use App\Models\Build;
-use App\Models\Changelog;
 use App\Models\Forum\Post;
 use App\Models\News;
-use App\Models\Wiki;
+use App\Models\User;
 use Auth;
 use Request;
 use View;
@@ -36,6 +36,19 @@ class HomeController extends Controller
 {
     protected $section = 'home';
 
+    public function __construct()
+    {
+        $this->middleware('auth', [
+            'only' => [
+                'downloadQuotaCheck',
+                'search',
+                'quickSearch',
+            ],
+        ]);
+
+        return parent::__construct();
+    }
+
     public function bbcodePreview()
     {
         $post = new Post(['post_text' => Request::input('text')]);
@@ -43,43 +56,11 @@ class HomeController extends Controller
         return $post->bodyHTML;
     }
 
-    public function getChangelog()
+    public function downloadQuotaCheck()
     {
-        $build = presence(Request::input('build'));
-
-        $changelogs = Changelog::default()
-            ->with('user');
-
-        if ($build !== null) {
-            $build = Build::with('updateStream')->where('version', $build)->firstOrFail();
-
-            $changelogs = [$build->date->format('F j, Y') => $changelogs->where('build', $build->version)->get()];
-        } else {
-            $from = Changelog::default()->first();
-            $changelogs = $changelogs
-                ->where('date', '>', $from->date->subWeeks(config('osu.changelog.recent_weeks')))
-                ->get()
-                ->groupBy(function ($item) {
-                    return $item->date->format('F j, Y');
-                });
-        }
-
-        $streams = Build::latestByStream(config('osu.changelog.update_streams'))
-            ->orderByField('stream_id', config('osu.changelog.update_streams'))
-            ->with('updateStream')
-            ->get();
-
-        $featuredStream = null;
-
-        foreach ($streams as $index => $stream) {
-            if ($stream->stream_id === config('osu.changelog.featured_stream')) {
-                $featuredStream = $stream;
-                unset($streams[$index]);
-                break;
-            }
-        }
-
-        return view('home.changelog', compact('changelogs', 'streams', 'featuredStream', 'build'));
+        return [
+            'quota_used' => BeatmapDownload::where('user_id', Auth::user()->user_id)->count(),
+        ];
     }
 
     public function getDownload()
@@ -129,22 +110,42 @@ class HomeController extends Controller
         }
     }
 
-    public function search()
+    public function osuSupportPopup()
     {
-        $query = Request::input('q');
-        $limit = 5;
+        return view('objects._popup_support_osu');
+    }
 
-        if (strlen($query) < 3) {
-            return [];
+    public function quickSearch()
+    {
+        $search = new Search([
+            'query' => Request::input('query'),
+            'limit' => 5,
+        ]);
+
+        if (!$search->hasQuery()) {
+            return response([], 204);
         }
 
-        $params = compact('query', 'limit');
+        return view('home.nav_search_result', compact('search'));
+    }
 
-        $beatmapsets = Beatmapset::search($params);
-        $posts = Post::search($params);
-        $wikiPages = Wiki\Page::search($params);
+    public function search()
+    {
+        if (Request::input('mode') === 'beatmapset') {
+            return ujs_redirect(route('beatmapsets.index', ['q' => Request::input('query')]));
+        }
 
-        return view('home.nav_search_result', compact('beatmapsets', 'posts', 'wikiPages'));
+        $params = array_merge(Request::all(), [
+            'user' => Auth::user(),
+        ]);
+
+        $search = new Search($params);
+
+        if ($search->mode === Search::DEFAULT_MODE) {
+            $search->params['limit'] = 8;
+        }
+
+        return view('home.search', compact('search'));
     }
 
     public function setLocale()

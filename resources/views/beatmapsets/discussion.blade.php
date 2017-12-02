@@ -24,7 +24,7 @@
 ])
 
 @section('content')
-    <div class="js-react--beatmap-discussions"></div>
+    <div class="js-react--beatmap-discussions osu-layout osu-layout--full"></div>
 @endsection
 
 @section ("script")
@@ -34,5 +34,5 @@
         {!! json_encode($initialData) !!}
     </script>
 
-    <script src="{{ elixir("js/react/beatmap-discussions.js") }}" data-turbolinks-track="reload"></script>
+    @include('layout._extra_js', ['src' => 'js/react/beatmap-discussions.js'])
 @endsection

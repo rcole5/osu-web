@@ -82,10 +82,11 @@
                         @endif
                     </div>
                     @foreach ($links as $link)
-                        <a class='artist__button artist__button--{{$link['class']}}' href='{{$link['url']}}'>
+                        <a class='artist-link-button artist-link-button--{{$link['class']}}' href='{{$link['url']}}'>
+                            <span class='artist-link-button__lightbar'></span>
                             <i class='fa fa-fw fa-{{$link['icon']}}'></i>
-                            <span class='artist__link-text'>{{$link['title']}}</span>
-                            <i class='fa fa-fw fa-chevron-right artist__chevron'></i>
+                            <span class='artist-link-button__text'>{{$link['title']}}</span>
+                            <i class='fa fa-fw fa-chevron-right artist-link-button__chevron'></i>
                         </a>
                     @endforeach
                 </div>
@@ -107,5 +108,6 @@
 
 @section("script")
   @parent
-  <script src="{{ elixir("js/react/artist-page.js") }}" data-turbolinks-track="reload"></script>
+
+  @include('layout._extra_js', ['src' => 'js/react/artist-page.js'])
 @stop

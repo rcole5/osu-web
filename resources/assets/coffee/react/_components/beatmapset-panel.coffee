@@ -16,53 +16,71 @@
 #    along with osu!web.  If not, see <http://www.gnu.org/licenses/>.
 ###
 
-{div,a,i,span} = React.DOM
+{div,a,i,span} = ReactDOMFactories
 el = React.createElement
 
-@BeatmapsetPanel = React.createClass
-  getInitialState: ->
-    preview: 'ended'
-    previewDuration: 0
+class @BeatmapsetPanel extends React.PureComponent
+  constructor: (props) ->
+    super props
+
+    @eventId = "beatmapsetPanel-#{props.beatmap.beatmapset_id}-#{osu.uuid()}"
+
+    @state =
+      preview: 'ended'
+      previewDuration: 0
 
 
-  componentDidMount: ->
-    @eventId = "beatmapsetPanel#{@props.beatmap.beatmapset_id}"
-
+  componentDidMount: =>
     $.subscribe "osuAudio:initializing.#{@eventId}", @previewInitializing
     $.subscribe "osuAudio:playing.#{@eventId}", @previewStart
     $.subscribe "osuAudio:ended.#{@eventId}", @previewStop
+    $(document).on "turbolinks:before-cache.#{@eventId}", @componentWillUnmount
 
 
-  componentWillUnmount: ->
+  componentWillUnmount: =>
+    @previewStop()
     $.unsubscribe ".#{@eventId}"
+    $(document).off ".#{@eventId}"
 
 
-  render: ->
+  render: =>
     # this is actually "beatmapset"
     beatmapset = @props.beatmap
 
     # arbitrary number
     maxDisplayedDifficulty = 10
 
-    difficulties = beatmapset.beatmaps[..maxDisplayedDifficulty - 1].map (b) =>
-      div
-        className: 'beatmapset-panel__difficulty-icon'
-        key: b.version
-        el BeatmapIcon, beatmap: b
+    condenseDifficulties = beatmapset.beatmaps.length > maxDisplayedDifficulty
 
-    if beatmapset.beatmaps.length > maxDisplayedDifficulty
-      difficulties.push span key: 'over', "+#{(beatmapset.beatmaps.length - maxDisplayedDifficulty)}"
+    difficulties =
+      for own mode, beatmaps of BeatmapHelper.group beatmapset.beatmaps
+        if condenseDifficulties
+          [
+            el BeatmapIcon, key: "#{mode}-icon", beatmap: _.last(beatmaps), showTitle: false
+            span
+              className: 'beatmapset-panel__difficulty-count'
+              key: "#{(mode)}-count", beatmaps.length
+          ]
+        else
+          for b in beatmaps
+            div
+              className: 'beatmapset-panel__difficulty-icon'
+              key: b.id
+              el BeatmapIcon, beatmap: b
 
     div
-      className: "beatmapset-panel #{'beatmapset-panel--previewing' if @state.preview != 'ended'}"
+      className: "beatmapset-panel#{if @state.preview != 'ended' then ' beatmapset-panel--previewing' else ''}"
       div className: 'beatmapset-panel__panel',
         div className: 'beatmapset-panel__header',
           a
             href: laroute.route('beatmapsets.show', beatmapset: beatmapset.id)
-            target: '_blank'
             className: 'beatmapset-panel__thumb'
             style:
               backgroundImage: "url(#{beatmapset.covers.card})"
+
+            if beatmapset.video or beatmapset.storyboard
+              div className: 'beatmapset-panel__video-icon',
+                el Icon, name: 'film', modifiers: ['fw']
 
             div className: 'beatmapset-panel__title-artist-box',
               div className: 'u-ellipsis-overflow beatmapset-panel__header-text beatmapset-panel__header-text--title',
@@ -95,29 +113,33 @@ el = React.createElement
                     osu.trans 'beatmaps.listing.mapped-by',
                       mapper:
                         laroute.link_to_route 'users.show',
-                          beatmapset.creator
-                          user: beatmapset.user_id
+                            beatmapset.creator,
+                            user: beatmapset.user_id,
+                              'class': 'js-usercard'
+                              'data-user-id': beatmapset.user_id
               div
                 className: 'u-ellipsis-overflow'
                 beatmapset.source
 
             div className: 'beatmapset-panel__icons-box',
-              a
-                href: Url.beatmapDownload(beatmapset.id)
-                className: 'beatmapset-panel__icon'
-                el Icon, name: 'download'
+              if currentUser?.id
+                a
+                  href: laroute.route 'beatmapsets.download', beatmapset: beatmapset.id
+                  className: 'beatmapset-panel__icon js-beatmapset-download-link'
+                  'data-turbolinks': 'false'
+                  el Icon, name: 'download'
 
           div className: 'beatmapset-panel__difficulties', difficulties
       a
         href: '#'
         className: 'beatmapset-panel__play js-audio--play'
-        'data-audio-url': beatmapset.previewUrl
+        'data-audio-url': beatmapset.preview_url
         el Icon, name: if @state.preview == 'ended' then 'play' else 'stop'
       div className: 'beatmapset-panel__shadow'
 
 
-  previewInitializing: (_e, {url, player}) ->
-    if url != @props.beatmap.previewUrl
+  previewInitializing: (_e, {url, player}) =>
+    if url != @props.beatmap.preview_url
       return @previewStop()
 
     @setState
@@ -125,8 +147,8 @@ el = React.createElement
       previewDuration: 0
 
 
-  previewStart: (_e, {url, player}) ->
-    if url != @props.beatmap.previewUrl
+  previewStart: (_e, {url, player}) =>
+    if url != @props.beatmap.preview_url
       return @previewStop()
 
     @setState
@@ -134,7 +156,7 @@ el = React.createElement
       previewDuration: player.duration
 
 
-  previewStop: ->
+  previewStop: =>
     return if @state.preview == 'ended'
 
     @setState

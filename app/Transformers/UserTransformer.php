@@ -20,8 +20,6 @@
 
 namespace App\Transformers;
 
-use App\Models\Beatmap;
-use App\Models\Score\Best\Model as ScoreBestModel;
 use App\Models\User;
 use League\Fractal;
 
@@ -29,18 +27,15 @@ class UserTransformer extends Fractal\TransformerAbstract
 {
     protected $availableIncludes = [
         'userAchievements',
-        'allRankHistories',
-        'allScores',
-        'allScoresBest',
-        'allScoresFirst',
-        'allStatistics',
-        'beatmapPlaycounts',
         'defaultStatistics',
+        'followerCount',
+        'friends',
         'page',
         'recentActivities',
-        'recentlyReceivedKudosu',
-        'rankedAndApprovedBeatmapsets',
-        'favouriteBeatmapsets',
+        'rankedAndApprovedBeatmapsetCount',
+        'unrankedBeatmapsetCount',
+        'graveyardBeatmapsetCount',
+        'favouriteBeatmapsetCount',
         'disqus_auth',
     ];
 
@@ -51,7 +46,7 @@ class UserTransformer extends Fractal\TransformerAbstract
         return [
             'id' => $user->user_id,
             'username' => $user->username,
-            'joinDate' => display_regdate($user),
+            'join_date' => json_date($user->user_regdate),
             'country' => [
                 'code' => $user->country_acronym,
                 'name' => $user->countryName(),
@@ -65,12 +60,14 @@ class UserTransformer extends Fractal\TransformerAbstract
             'isBNG' => $user->isBNG(),
             'is_active' => $user->isActive(),
             'interests' => $user->user_interests,
+            'occupation' => $user->user_occ,
             'title' => $user->title(),
             'location' => $user->user_from,
             'lastvisit' => json_time($user->user_lastvisit),
             'twitter' => $user->user_twitter,
             'lastfm' => $user->user_lastfm,
             'skype' => $user->user_msnm,
+            'website' => $user->user_website,
             'playstyle' => $user->osu_playstyle,
             'playmode' => $user->playmode,
             'profile_colour' => $user->user_colour,
@@ -85,6 +82,7 @@ class UserTransformer extends Fractal\TransformerAbstract
                 'total' => $user->osu_kudostotal,
                 'available' => $user->osu_kudosavailable,
             ],
+            'max_friends' => $user->maxFriends(),
         ];
     }
 
@@ -95,80 +93,19 @@ class UserTransformer extends Fractal\TransformerAbstract
         return $this->item($stats, new UserStatisticsTransformer);
     }
 
-    public function includeAllStatistics(User $user)
+    public function includeFollowerCount(User $user)
     {
         return $this->item($user, function ($user) {
-            $all = [];
-            foreach (array_keys(Beatmap::MODES) as $mode) {
-                $all[$mode] = json_item($user->statistics($mode), new UserStatisticsTransformer, ['rank', 'scoreRanks']);
-            }
-
-            return $all;
+            return [$user->followerCount()];
         });
     }
 
-    public function includeAllRankHistories(User $user)
+    public function includeFriends(User $user)
     {
-        return $this->item($user, function ($user) {
-            $all = [];
-            foreach ($user->rankHistories as $history) {
-                $all[$history->mode] = json_item($history, new RankHistoryTransformer());
-            }
-
-            return $all;
-        });
-    }
-
-    public function includeAllScoresFirst(User $user)
-    {
-        return $this->item($user, function ($user) {
-            $all = [];
-            foreach (array_keys(Beatmap::MODES) as $mode) {
-                $scores = $user
-                    ->scoresFirst($mode, true)
-                    ->default()
-                    ->userBest(100, ['beatmapset', 'beatmap']);
-
-                $all[$mode] = json_collection($scores, new ScoreTransformer(), 'beatmap,beatmapset');
-            }
-
-            return $all;
-        });
-    }
-
-    public function includeAllScoresBest(User $user)
-    {
-        return $this->item($user, function ($user) {
-            $all = [];
-            foreach (array_keys(Beatmap::MODES) as $mode) {
-                $scores = $user
-                    ->scoresBest($mode, true)
-                    ->default()
-                    ->orderBy('pp', 'DESC')
-                    ->userBest(100, ['beatmapset', 'beatmap']);
-
-                ScoreBestModel::fillInPosition($scores);
-
-                $all[$mode] = json_collection($scores, new ScoreTransformer(), 'beatmap,beatmapset,weight');
-            }
-
-            return $all;
-        });
-    }
-
-    public function includeAllScores(User $user)
-    {
-        return $this->item($user, function ($user) {
-            $all = [];
-
-            foreach (array_keys(Beatmap::MODES) as $mode) {
-                $scores = $user->scores($mode, true)->default()->with('beatmapset', 'beatmap')->get();
-
-                $all[$mode] = json_collection($scores, new ScoreTransformer(), 'beatmap,beatmapset');
-            }
-
-            return $all;
-        });
+        return $this->collection(
+            $user->relations()->friends()->withMutual()->get(),
+            new UserRelationTransformer()
+        );
     }
 
     public function includePage(User $user)
@@ -176,7 +113,7 @@ class UserTransformer extends Fractal\TransformerAbstract
         return $this->item($user, function ($user) {
             if ($user->userPage !== null) {
                 return [
-                    'html' => $user->userPage->bodyHTML,
+                    'html' => $user->userPage->bodyHTMLWithoutImageDimensions,
                     'raw' => $user->userPage->bodyRaw,
                 ];
             } else {
@@ -201,46 +138,40 @@ class UserTransformer extends Fractal\TransformerAbstract
         );
     }
 
-    public function includeBeatmapPlaycounts(User $user)
+    public function includeRankedAndApprovedBeatmapsetCount(User $user)
     {
-        $beatmapPlaycounts = $user->beatmapPlaycounts()
-            ->with('beatmap', 'beatmap.beatmapset')
-            ->orderBy('playcount', 'desc')
-            ->limit(100)
-            ->get()
-            ->filter(function ($pc) {
-                return $pc->beatmap !== null && $pc->beatmap->beatmapset !== null;
-            });
-
-        return $this->collection($beatmapPlaycounts, new BeatmapPlaycountTransformer());
+        return $this->item($user, function ($user) {
+            return [
+                $user->profileBeatmapsetsRankedAndApproved()->count(),
+            ];
+        });
     }
 
-    public function includeRecentlyReceivedKudosu(User $user)
+    public function includeUnrankedBeatmapsetCount(User $user)
     {
-        return $this->collection(
-            $user->receivedKudosu()
-                ->with('post', 'post.topic', 'giver', 'kudosuable')
-                ->orderBy('exchange_id', 'desc')
-                ->limit(15)
-                ->get(),
-            new KudosuHistoryTransformer()
-        );
+        return $this->item($user, function ($user) {
+            return [
+                $user->profileBeatmapsetsUnranked()->count(),
+            ];
+        });
     }
 
-    public function includeRankedAndApprovedBeatmapsets(User $user)
+    public function includeGraveyardBeatmapsetCount(User $user)
     {
-        return $this->collection(
-            $user->beatmapsets()->rankedOrApproved()->active()->with('beatmaps')->get(),
-            new BeatmapsetTransformer()
-        );
+        return $this->item($user, function ($user) {
+            return [
+                $user->profileBeatmapsetsGraveyard()->count(),
+            ];
+        });
     }
 
-    public function includeFavouriteBeatmapsets(User $user)
+    public function includeFavouriteBeatmapsetCount(User $user)
     {
-        return $this->collection(
-            $user->favouriteBeatmapsets()->with('beatmaps')->get(),
-            new BeatmapsetTransformer()
-        );
+        return $this->item($user, function ($user) {
+            return [
+                $user->profileBeatmapsetsFavourite()->count(),
+            ];
+        });
     }
 
     public function includeDisqusAuth(User $user)

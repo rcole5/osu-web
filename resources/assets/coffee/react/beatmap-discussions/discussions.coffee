@@ -16,20 +16,17 @@
 #    along with osu!web.  If not, see <http://www.gnu.org/licenses/>.
 ###
 
-{a, button, div, p, span} = React.DOM
+{a, button, div, p, span} = ReactDOMFactories
 el = React.createElement
 
 bn = 'beatmap-discussions'
 lp = 'beatmaps.discussions'
 
-BeatmapDiscussions.Discussions = React.createClass
-  mixins: [React.addons.PureRenderMixin]
-
-
-  render: ->
+class BeatmapDiscussions.Discussions extends React.PureComponent
+  render: =>
     discussions = @props.currentDiscussions[@props.mode]
 
-    div className: 'osu-page osu-page--small',
+    div className: 'osu-page osu-page--small osu-page--full',
       div
         className: bn
 
@@ -56,38 +53,35 @@ BeatmapDiscussions.Discussions = React.createClass
               span className: 'btn-osu-lite__right',
                 osu.trans('beatmaps.discussions.collapse.all-expand')
 
-        div
-          className: "#{bn}__discussions"
 
-          @timelineCircle()
+        if discussions.length == 0
+          div className: "#{bn}__discussions #{bn}__discussions--empty",
+            osu.trans 'beatmaps.discussions.empty.empty'
 
-          if @props.mode == 'timeline'
+        else if _.size(@props.currentDiscussions.byFilter[@props.currentFilter][@props.mode]) == 0
+          div className: "#{bn}__discussions #{bn}__discussions--empty",
+            osu.trans 'beatmaps.discussions.empty.hidden'
+
+        else
+          div
+            className: "#{bn}__discussions"
+            @timelineCircle()
+
+            if @props.mode == 'timeline'
               div className: "#{bn}__timeline-line hidden-xs"
 
-          div null,
-            discussions.map @discussionPage
+            div null,
+              discussions.map @discussionPage
 
-            if discussions.length == 0
-              div className: "#{bn}__discussion #{bn}__discussion--empty",
-                osu.trans 'beatmaps.discussions.empty.empty'
-            else if @props.mode == 'timeline' &&
-            _.size(@props.currentDiscussions.timelineByFilter[@props.currentFilter]) == 0
-              div className: "#{bn}__discussion #{bn}__discussion--empty",
-                osu.trans 'beatmaps.discussions.empty.hidden'
-
-          @timelineCircle()
+            @timelineCircle()
 
 
-  discussionPage: (discussion) ->
+  discussionPage: (discussion) =>
     return if !discussion.id?
 
     className = "#{bn}__discussion"
-
-    if @props.mode == 'timeline' &&
-    !@props.currentDiscussions.timelineByFilter[@props.currentFilter][discussion.id]?
-      className += ' u-hide-by-height'
-    else
-      visible = true
+    visible = @props.currentDiscussions.byFilter[@props.currentFilter][@props.mode][discussion.id]?
+    className += ' u-hide-by-height' unless visible
 
     div
       key: discussion.id
@@ -100,15 +94,15 @@ BeatmapDiscussions.Discussions = React.createClass
         currentBeatmap: @props.currentBeatmap
         userPermissions: @props.userPermissions
         readPostIds: @props.readPostIds
-        visible: visible?
+        visible: visible
 
 
-  expand: (e) ->
+  expand: (e) =>
     e.preventDefault()
     $.publish 'beatmapDiscussionEntry:collapse', collapse: e.currentTarget.dataset.type
 
 
-  hidden: (discussion) ->
+  hidden: (discussion) =>
     switch @props.currentFilter
       when 'mine' then discussion.user_id != @props.currentUser.id
       when 'resolved' then discussion.message_type == 'praise' || !discussion.resolved
@@ -117,7 +111,7 @@ BeatmapDiscussions.Discussions = React.createClass
       else false
 
 
-  timelineCircle: ->
+  timelineCircle: =>
     div
       'data-visibility': if @props.mode != 'timeline' then 'hidden'
       className: "#{bn}__mode-circle #{bn}__mode-circle--active hidden-xs"

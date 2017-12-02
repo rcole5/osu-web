@@ -22,7 +22,7 @@ namespace App\Models\Forum;
 
 use App\Libraries\BBCodeForDB;
 use App\Models\DeletedUser;
-use App\Models\Log;
+use App\Models\User;
 use Carbon\Carbon;
 use DB;
 use Es;
@@ -52,7 +52,7 @@ class Post extends Model
 
     public function topic()
     {
-        return $this->belongsTo("App\Models\Forum\Topic", 'topic_id', 'topic_id');
+        return $this->belongsTo(Topic::class, 'topic_id', 'topic_id');
     }
 
     public function user()
@@ -119,33 +119,53 @@ class Post extends Model
         return $unreadPostId;
     }
 
-    public static function search($params)
+    public static function search($rawParams)
     {
-        $ids = static::searchES(static::searchParams($params));
+        $params = static::searchParams($rawParams);
+        $result = static::searchEs($params);
 
-        return count($ids) > 0
-            ? static
-                ::with('topic')
-                ->whereIn('post_id', $ids)
-                ->orderByField('post_id', $ids)
-                ->get()
-            : [];
+        $query = static
+            ::with('topic')
+            ->whereIn('post_id', $result['ids'])
+            ->orderByField('post_id', $result['ids']);
+
+        return [
+            'data' => $query->get(),
+            'total' => $result['total'],
+            'params' => $params,
+        ];
     }
 
-    public static function searchES($params = [])
+    public static function searchEs($params = [])
     {
-        $query = es_query_and_words($params['query']);
+        $required = [];
+        $any = [];
 
-        if (!empty($params['user_ids'])) {
-            $query .= ' AND user_id:('.implode(' OR ', $params['user_ids']).')';
+        if (present($params['query'])) {
+            $required[] = ['query_string' => ['query' => es_query_and_words($params['query'])]];
         }
 
-        if (!empty($params['forum_ids'])) {
-            $query .= ' AND forum_id:('.implode(' OR ', $params['forum_ids']).')';
+        if (present($params['username'])) {
+            $user = User::where('username', '=', $params['username'])->first();
+            $any[] = ['match' => ['poster_id' => $user === null ? -1 : $user->getKey()]];
         }
 
-        if (isset($params['topic_id'])) {
-            $query .= ' AND topic_id:'.$params['topic_id'];
+        if ($params['forum_id']) {
+            if ($params['forum_children']) {
+                $forum = Forum::where('forum_id', '=', $params['forum_id'])->first();
+
+                $forumIds = $forum === null ? [$params['forum_id']] : $forum->allSubForums();
+            } else {
+                $forumIds = [$params['forum_id']];
+            }
+
+            foreach ($forumIds as $forumId) {
+                $any[] = ['match' => ['forum_id' => $forumId]];
+            }
+        }
+
+        if ($params['topic_id'] !== null) {
+            $required[] = ['match' => ['topic_id' => $params['topic_id']]];
         }
 
         $searchParams = [
@@ -153,27 +173,39 @@ class Post extends Model
             'type' => 'posts',
             'size' => $params['limit'],
             'from' => ($params['page'] - 1) * $params['limit'],
-            'q' => $query,
         ];
+
+        if (count($required) > 0) {
+            $searchParams['body']['query']['bool']['must'] = $required;
+        }
+
+        if (count($any) > 0) {
+            $searchParams['body']['query']['bool']['should'] = $any;
+            $searchParams['body']['query']['bool']['minimum_should_match'] = 1;
+        }
 
         $resultEs = Es::search($searchParams);
 
-        $result = [];
+        $ids = [];
 
-        foreach ($resultEs['hits']['hits'] ?? [] as $post) {
-            $result[] = $post['_id'];
+        foreach ($resultEs['hits']['hits'] as $post) {
+            $ids[] = get_int($post['_id']);
         }
 
-        return $result;
+        return [
+            'ids' => $ids,
+            'total' => $resultEs['hits']['total'],
+        ];
     }
 
     public static function searchParams($params)
     {
         $params['query'] = $params['query'] ?? null;
-        $params['limit'] = max(1, min(50, $params['limit'] ?? 50));
+        $params['limit'] = clamp($params['limit'] ?? 50, 1, 50);
         $params['page'] = max(1, $params['page'] ?? 1);
-        $params['user_ids'] = get_arr($params['user_ids'] ?? null, 'get_int');
-        $params['forum_ids'] = get_arr($params['forum_ids'] ?? null, 'get_int');
+        $params['username'] = get_string($params['username'] ?? null);
+        $params['forum_children'] = get_bool($params['forum_children'] ?? false);
+        $params['forum_id'] = get_int($params['forum_id'] ?? null);
         $params['topic_id'] = get_int($params['topic_id'] ?? null);
 
         return $params;
@@ -189,7 +221,7 @@ class Post extends Model
             } elseif ($user->isRestricted()) {
                 $normalizedUser = new DeletedUser();
                 $normalizedUser->username = $user->username;
-                $normalizedUser->user_colour = 'ccc';
+                $normalizedUser->user_colour = '#ccc';
             } else {
                 $normalizedUser = $user;
             }
@@ -225,22 +257,23 @@ class Post extends Model
             'post_text' => $body,
         ];
 
-        if ($user->user_id === $this->poster_id) {
-            $updates = array_merge($updates, [
-                'post_edit_time' => Carbon::now(),
-                'post_edit_count' => DB::raw('post_edit_count + 1'),
-                'post_edit_user' => $user->user_id,
-            ]);
-        } else {
-            Log::logModerateForumPost('LOG_POST_EDITED', $this);
-        }
+        $updates = array_merge($updates, [
+            'post_edit_time' => Carbon::now(),
+            'post_edit_count' => DB::raw('post_edit_count + 1'),
+            'post_edit_user' => $user->user_id,
+        ]);
 
         return $this->update($updates);
     }
 
     public function getBodyHTMLAttribute()
     {
-        return bbcode($this->post_text, $this->bbcode_uid, true);
+        return bbcode($this->post_text, $this->bbcode_uid, ['withGallery' => true]);
+    }
+
+    public function getBodyHTMLWithoutImageDimensionsAttribute()
+    {
+        return bbcode($this->post_text, $this->bbcode_uid, ['withGallery' => true, 'withoutImageDimensions' => true]);
     }
 
     public function getBodyRawAttribute()

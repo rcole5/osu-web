@@ -23,7 +23,6 @@ namespace App\Models;
 class UserGroup extends Model
 {
     protected $table = 'phpbb_user_group';
-    protected $primaryKey = 'group_id';
     public $timestamps = false;
     protected $guarded = [];
 
@@ -39,6 +38,11 @@ class UserGroup extends Model
         'mod' => 18,
         'bng' => 28,
     ];
+
+    public function group()
+    {
+        return $this->belongsTo(Group::class, 'group_id');
+    }
 
     public function user()
     {

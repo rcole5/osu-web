@@ -32,7 +32,7 @@
 
   @media @desktop {
     padding-left: (@padding-big - (@_menu-spacing / 2));
-    height: @height--nav-popup;
+    min-height: @height--nav-popup;
   }
 
   &--main {
@@ -50,11 +50,6 @@
 
   &__action {
     margin: 0 5px;
-  }
-
-  &__button {
-    width: 120px;
-    height: 35px;
   }
 
   &__bar {
@@ -83,10 +78,12 @@
     padding: 10px 5px;
 
     margin: 5px;
+    font-size: @font-size--phone-input;
 
     @media @desktop {
       width: calc(100% ~'-' 10px);
       margin: 0 5px;
+      font-size: inherit;
     }
 
     &::placeholder {
@@ -277,6 +274,51 @@
         max-width: 240px;
       }
     }
+  }
+
+  &__social {
+    .circle(39px);
+    .center-content();
+    .link-plain();
+    border: 2px solid #333;
+    font-size: 18px;
+    color: #fff;
+    margin-left: 10px;
+
+    .link-hover({
+      background-color: #fff;
+      border-color: #fff;
+    });
+
+    &--facebook {
+      .link-hover({
+        color: @facebook-colour;
+      });
+    }
+
+    &--support {
+      .link-hover({
+        color: @pink;
+      });
+    }
+
+    &--twitter {
+      .link-hover({
+        color: @twitter-colour;
+      });
+    }
+  }
+
+  &__socials {
+    position: absolute;
+    bottom: @bar-size;
+    left: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    padding: 10px;
+    background-color: #111;
+    z-index: 2; // local context, above submenu
   }
 
   &__submenu-container {

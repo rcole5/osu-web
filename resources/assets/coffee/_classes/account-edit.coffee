@@ -18,7 +18,7 @@
 
 class @AccountEdit
   constructor: ->
-    $(document).on 'input', '.js-account-edit__input', @initializeUpdate
+    $(document).on 'input', '.js-account-edit', @initializeUpdate
 
     $(document).on 'ajax:error', '.js-account-edit', @ajaxError
     $(document).on 'ajax:send', '.js-account-edit', @ajaxSaving
@@ -26,8 +26,13 @@ class @AccountEdit
 
 
   initializeUpdate: (e) =>
-    e.currentTarget.debouncedUpdate ?= _.debounce @update, 1000
-    e.currentTarget.debouncedUpdate e
+    form = e.currentTarget
+
+    return if form.dataset.accountEditAutoSubmit != '1'
+
+    @abortUpdate form
+    form.debouncedUpdate ?= _.debounce @update, 1000
+    form.debouncedUpdate form
 
 
   ajaxError: (e) =>
@@ -49,7 +54,7 @@ class @AccountEdit
   saved: (el) =>
     el.dataset.accountEditState = 'saved'
 
-    Timeout.set 3000, =>
+    el.savedTimeout = Timeout.set 3000, =>
       @clearState el
 
 
@@ -57,33 +62,35 @@ class @AccountEdit
     el.dataset.accountEditState = 'saving'
 
 
-  update: (e) =>
-    input = e.currentTarget
+  abortUpdate: (form) =>
+    Timeout.clear form.savedTimeout
+    form.updating?.abort()
+    @clearState form
+
+
+  update: (form) =>
+    input = form.querySelector('.js-account-edit__input')
     value = input.value
-    prevValue = input.dataset.lastValue
-    $main = $(input).closest('.js-account-edit')
+    prevValue = form.dataset.lastValue
 
     return if value == prevValue
 
-    input.dataset.lastValue = value
-    Timeout.clear input.savedTimeout
-    Timeout.clear input.savingTimeout
+    form.dataset.lastValue = value
 
-    input.savingTimeout = Timeout.set 1000, =>
-      @saving $main[0]
+    @saving form
 
-    $.ajax laroute.route('account.update'),
+    form.updating = $.ajax laroute.route('account.update'),
       method: 'PUT'
       data:
         "#{input.name}": value
 
     .done =>
-      @saved $main[0]
+      @saved form
 
-    .fail (xhr) =>
-      input.lastValue = prevValue
+    .fail (xhr, status) =>
+      return if status == 'abort'
+
+      form.lastValue = prevValue
+      @clearState form
+
       osu.ajaxError xhr
-
-    .always =>
-      Timeout.clear input.savingTimeout
-      $main.removeClass 'js-account-edit--saving'
